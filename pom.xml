@@ -23,6 +23,7 @@
     <modules>
 
         <module>shared</module>
+        <module>services/api-gateway</module>
     </modules>
 
     <properties>
