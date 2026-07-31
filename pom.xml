@@ -18,27 +18,11 @@
         Enterprise Kubernetes Management Platform for Multi-Cluster Operations
     </description>
 
-    <url>https://github.com/YOUR_USERNAME/KubeManager</url>
-
-    <!-- ====================================================== -->
-    <!-- Child Modules                                          -->
-    <!-- Modules will be added incrementally in future PRs      -->
-    <!-- ====================================================== -->
+    <url>https://github.com/yashdotdev13/KubeManager</url>
 
     <modules>
 
-        <!-- Shared Modules -->
-
-        <!-- <module>shared/common-dto</module> -->
-        <!-- <module>shared/common-security</module> -->
-        <!-- <module>shared/common-events</module> -->
-
-        <!-- Services -->
-
-        <!-- <module>services/api-gateway</module> -->
-        <!-- <module>services/auth-service</module> -->
-        <!-- <module>services/cluster-service</module> -->
-
+        <module>shared</module>
     </modules>
 
     <properties>
