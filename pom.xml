@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://maven.apache.org/POM/4.0.0
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.kubemanager</groupId>
+    <artifactId>kubemanager-parent</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>KubeManager</name>
+
+    <description>
+        Enterprise Kubernetes Management Platform for Multi-Cluster Operations
+    </description>
+
+    <url>https://github.com/YOUR_USERNAME/KubeManager</url>
+
+    <!-- ====================================================== -->
+    <!-- Child Modules                                          -->
+    <!-- Modules will be added incrementally in future PRs      -->
+    <!-- ====================================================== -->
+
+    <modules>
+
+        <!-- Shared Modules -->
+
+        <!-- <module>shared/common-dto</module> -->
+        <!-- <module>shared/common-security</module> -->
+        <!-- <module>shared/common-events</module> -->
+
+        <!-- Services -->
+
+        <!-- <module>services/api-gateway</module> -->
+        <!-- <module>services/auth-service</module> -->
+        <!-- <module>services/cluster-service</module> -->
+
+    </modules>
+
+    <properties>
+
+        <java.version>21</java.version>
+
+        <spring.boot.version>3.3.2</spring.boot.version>
+
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+
+    </properties>
+
+
+    <dependencyManagement>
+
+        <dependencies>
+
+            <dependency>
+
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring.boot.version}</version>
+
+                <type>pom</type>
+                <scope>import</scope>
+
+            </dependency>
+
+        </dependencies>
+
+    </dependencyManagement>
+
+</project>
