@@ -1,0 +1,68 @@
+server:
+  port: 8081
+
+application:
+  cors:
+    allowed-origins:
+      - http://localhost:3000
+      - http://localhost:5173
+
+    allowed-methods:
+      - GET
+      - POST
+      - PUT
+      - PATCH
+      - DELETE
+      - OPTIONS
+
+    allowed-headers:
+      - "*"
+
+    exposed-headers:
+      - Authorization
+      - X-Correlation-ID
+
+    allow-credentials: true
+
+    max-age: 3600
+
+security:
+  jwt:
+    secret: ThisIsMyVeryLongSecretKeyForDistributedUrlShortenerApplication123456789
+
+spring:
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2s
+
+
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+
+      routes:
+
+        - id: auth-service
+          uri: lb://AUTH-SERVICE
+
+          predicates:
+              - Path=/api/auth/**
+
+          filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@ipKeyResolver}"
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+
+
+        - id: cluster-service
+          uri: lb://CLUSTER-SERVICE
+          predicates:
+            - Path=/api/clusters/**

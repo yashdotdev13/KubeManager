@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: api-gateway
+
+  profiles:
+    active: local
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    root: INFO
