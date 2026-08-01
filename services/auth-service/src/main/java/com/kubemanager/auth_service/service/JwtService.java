@@ -11,8 +11,6 @@ public interface JwtService {
 
     String generateAccessToken(User user);
 
-    String generateRefreshToken(User user);
-
     boolean validateToken(String token);
 
     UUID extractUserId(String token);
