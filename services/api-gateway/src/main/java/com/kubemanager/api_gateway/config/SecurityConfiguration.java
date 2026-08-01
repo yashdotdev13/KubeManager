@@ -38,10 +38,16 @@ public class SecurityConfiguration {
 
                         .pathMatchers(
                                 "/api/v1/health",
-                                "/actuator/**"
-                        ).permitAll()
-                        .anyExchange().authenticated()
+                                "/actuator/**",
 
+                                "/api/v1/auth/register",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/refresh"
+                        )
+                        .permitAll()
+
+                        .anyExchange()
+                        .authenticated()
                 )
                 .build();
     }

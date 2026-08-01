@@ -7,15 +7,28 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum ErrorCode {
 
+    // Generic
     BAD_REQUEST("400", "Bad Request"),
     UNAUTHORIZED("401", "Unauthorized"),
     FORBIDDEN("403", "Forbidden"),
     NOT_FOUND("404", "Resource Not Found"),
     CONFLICT("409", "Conflict"),
     VALIDATION_ERROR("422", "Validation Failed"),
-    INTERNAL_SERVER_ERROR("500", "Internal Server Error");
+    INTERNAL_SERVER_ERROR("500", "Internal Server Error"),
+
+    // Authentication
+    AUTHENTICATION_FAILED("AUTH_001", "Authentication Failed"),
+    INVALID_TOKEN("AUTH_002", "Invalid Token"),
+    TOKEN_EXPIRED("AUTH_003", "Token Expired"),
+
+    // User
+    USER_NOT_FOUND("USER_001", "User Not Found"),
+    USERNAME_ALREADY_EXISTS("USER_002", "Username Already Exists"),
+    EMAIL_ALREADY_EXISTS("USER_003", "Email Already Exists"),
+
+    // Role
+    ROLE_NOT_FOUND("ROLE_001", "Role Not Found");
 
     private final String code;
     private final String message;
-
 }
