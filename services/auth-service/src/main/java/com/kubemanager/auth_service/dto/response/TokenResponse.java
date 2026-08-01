@@ -5,14 +5,18 @@ import lombok.*;
 
 @Getter
 @Setter
-@AllArgsConstructor
-@NoArgsConstructor
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TokenResponse {
 
     private String accessToken;
 
     private String refreshToken;
 
-    private String tokenType;
+    @Builder.Default
+    private String tokenType = "Bearer";
+
+    private Long expiresIn;
+
 }

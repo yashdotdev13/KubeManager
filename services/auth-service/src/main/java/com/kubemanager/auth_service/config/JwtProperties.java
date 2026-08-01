@@ -18,4 +18,12 @@ public class JwtProperties {
 
     private long refreshTokenExpiration;
 
+    public long getAccessTokenExpirationSeconds() {
+        return accessTokenExpiration;
+    }
+
+    public long getRefreshTokenExpirationSeconds() {
+        return refreshTokenExpiration;
+    }
+
 }

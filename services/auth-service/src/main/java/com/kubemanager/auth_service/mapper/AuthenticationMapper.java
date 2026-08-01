@@ -1,5 +1,6 @@
 package com.kubemanager.auth_service.mapper;
 
+
 import com.kubemanager.auth_service.dto.response.AuthenticationResponse;
 import com.kubemanager.auth_service.dto.response.TokenResponse;
 import com.kubemanager.auth_service.dto.response.UserResponse;
@@ -11,7 +12,8 @@ public class AuthenticationMapper {
     public AuthenticationResponse toResponse(
             UserResponse user,
             String accessToken,
-            String refreshToken
+            String refreshToken,
+            Long expiresIn
     ) {
 
         return AuthenticationResponse.builder()
@@ -20,7 +22,7 @@ public class AuthenticationMapper {
                         TokenResponse.builder()
                                 .accessToken(accessToken)
                                 .refreshToken(refreshToken)
-                                .tokenType("Bearer")
+                                .expiresIn(expiresIn)
                                 .build()
                 )
                 .build();
