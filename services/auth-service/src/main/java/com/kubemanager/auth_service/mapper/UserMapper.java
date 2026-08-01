@@ -1,6 +1,5 @@
 package com.kubemanager.auth_service.mapper;
 
-
 import com.kubemanager.auth_service.dto.response.UserResponse;
 import com.kubemanager.auth_service.entity.Role;
 import com.kubemanager.auth_service.entity.User;
@@ -17,6 +16,8 @@ public class UserMapper {
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
+                .provider(user.getProvider())
+                .avatarUrl(user.getAvatarUrl())
                 .roles(
                         user.getRoles()
                                 .stream()
