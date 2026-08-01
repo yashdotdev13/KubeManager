@@ -1,6 +1,6 @@
 package com.kubemanager.auth_service.entity;
 
-
+import com.kubemanager.auth_service.enums.AuthProvider;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -34,14 +34,26 @@ public class User {
     @Column(nullable = false, length = 100)
     private String email;
 
-    @Column(nullable = false)
+
+    @Column
     private String password;
 
 
     @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private AuthProvider provider = AuthProvider.LOCAL;
+
+    @Column(unique = true)
+    private String providerId;
+
+
+    @Column(length = 500)
+    private String avatarUrl;
+
+    @Builder.Default
     @Column(nullable = false)
     private boolean enabled = true;
-
 
     @Builder.Default
     @Column(nullable = false)
@@ -55,7 +67,6 @@ public class User {
     @Column(nullable = false)
     private Boolean credentialsNonExpired = true;
 
-
     @Builder.Default
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
@@ -65,22 +76,22 @@ public class User {
     )
     private Set<Role> roles = new HashSet<>();
 
-
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-
     @PrePersist
     public void prePersist() {
+
         createdAt = LocalDateTime.now();
         updatedAt = createdAt;
     }
 
     @PreUpdate
     public void preUpdate() {
+
         updatedAt = LocalDateTime.now();
     }
 
