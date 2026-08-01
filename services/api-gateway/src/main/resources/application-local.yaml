@@ -28,7 +28,7 @@ application:
 
 security:
   jwt:
-    secret: ThisIsMyVeryLongSecretKeyForDistributedUrlShortenerApplication123456789
+    secret: ThisIsMyVeryLongSecretKeyForKubeManagerPlatformAuthentication123456789
 
 spring:
 
