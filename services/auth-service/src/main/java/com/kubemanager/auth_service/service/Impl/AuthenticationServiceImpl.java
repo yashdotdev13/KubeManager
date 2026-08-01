@@ -14,8 +14,12 @@ import com.kubemanager.auth_service.exception.InvalidTokenException;
 import com.kubemanager.auth_service.mapper.AuthenticationMapper;
 import com.kubemanager.auth_service.mapper.UserMapper;
 import com.kubemanager.auth_service.service.*;
+import com.kubemanager.exception.ErrorCode;
+import com.kubemanager.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +37,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private final AuthenticationMapper authenticationMapper;
     private final UserMapper userMapper;
     private final JwtProperties jwtProperties;
+    private final AuthenticationManager authenticationManager;
 
 
     @Override
@@ -63,42 +68,37 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
         log.info("Login request received for '{}'.", request.getUsernameOrEmail());
 
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getUsernameOrEmail(),
+                        request.getPassword()
+                )
+        );
+
         User user = userService.findByUsername(request.getUsernameOrEmail())
                 .or(() -> userService.findByEmail(request.getUsernameOrEmail()))
                 .orElseThrow(() -> {
 
-                    log.warn("Login failed. User '{}' not found.",
-                            request.getUsernameOrEmail());
+                    log.error(
+                            "Authentication succeeded but user '{}' was not found.",
+                            request.getUsernameOrEmail()
+                    );
 
-                    return new AuthenticationException(
-                            "Invalid username/email or password."
+                    return new ResourceNotFoundException(
+                            ErrorCode.USER_NOT_FOUND,
+                            "User not found."
                     );
                 });
-
-        if (!passwordService.matches(
-                request.getPassword(),
-                user.getPassword())) {
-
-            log.warn("Invalid password for user '{}'.",
-                    request.getUsernameOrEmail());
-
-            throw new AuthenticationException(
-                    "Invalid username/email or password."
-            );
-        }
 
         refreshTokenService.deleteByUser(user);
 
         String accessToken = jwtService.generateAccessToken(user);
 
-        RefreshToken refreshToken =
-                refreshTokenService.createRefreshToken(user);
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
 
-        UserResponse userResponse =
-                userMapper.toResponse(user);
+        UserResponse userResponse = userMapper.toResponse(user);
 
-        log.info("User '{}' logged in successfully.",
-                user.getUsername());
+        log.info("User '{}' logged in successfully.", user.getUsername());
 
         return authenticationMapper.toResponse(
                 userResponse,
