@@ -52,7 +52,7 @@ spring:
           uri: lb://AUTH-SERVICE
 
           predicates:
-              - Path=/api/auth/**
+              - Path=/api/v1/auth/**
 
           filters:
             - name: RequestRateLimiter
