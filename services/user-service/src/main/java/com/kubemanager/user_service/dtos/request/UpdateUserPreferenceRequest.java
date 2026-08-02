@@ -19,11 +19,11 @@ public class UpdateUserPreferenceRequest {
 
     private String defaultNamespace;
 
-    private boolean emailNotification;
+    private Boolean emailNotification;
 
-    private boolean slackNotification;
+    private Boolean slackNotification;
 
-    private boolean desktopNotification;
+    private Boolean desktopNotification;
 
     private Boolean aiSuggestionsEnabled;
 
