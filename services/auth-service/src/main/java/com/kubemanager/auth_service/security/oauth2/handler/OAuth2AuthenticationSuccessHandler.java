@@ -2,15 +2,17 @@ package com.kubemanager.auth_service.security.oauth2.handler;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kubemanager.auth_service.mapper.AuthenticationMapper;
-import com.kubemanager.auth_service.mapper.UserMapper;
-import com.kubemanager.auth_service.service.JwtService;
-import com.kubemanager.auth_service.service.RefreshTokenService;
+import com.kubemanager.auth_service.dto.response.AuthenticationResponse;
+import com.kubemanager.auth_service.entity.User;
+import com.kubemanager.auth_service.security.oauth2.user.OAuth2UserPrincipal;
+import com.kubemanager.auth_service.service.AuthenticationTokenService;
+import com.kubemanager.response.ApiResponse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -23,10 +25,7 @@ import java.io.IOException;
 public class OAuth2AuthenticationSuccessHandler
         implements AuthenticationSuccessHandler {
 
-    private final JwtService jwtService;
-    private final RefreshTokenService refreshTokenService;
-    private final UserMapper userMapper;
-    private final AuthenticationMapper authenticationMapper;
+    private final AuthenticationTokenService authenticationTokenService;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -36,10 +35,32 @@ public class OAuth2AuthenticationSuccessHandler
             Authentication authentication
     ) throws IOException, ServletException {
 
-        /*
-         * Implementation will come in the next step.
-         */
+        OAuth2UserPrincipal principal =
+                (OAuth2UserPrincipal) authentication.getPrincipal();
 
+        User user = principal.getUser();
+
+        log.info(
+                "OAuth2 authentication successful for '{}'.",
+                user.getEmail()
+        );
+
+        AuthenticationResponse authenticationResponse =
+                authenticationTokenService.createAuthenticationResponse(user);
+
+        ApiResponse<AuthenticationResponse> apiResponse =
+                ApiResponse.<AuthenticationResponse>builder()
+                        .success(true)
+                        .message("Authentication successful.")
+                        .data(authenticationResponse)
+                        .build();
+
+        response.setStatus(HttpServletResponse.SC_OK);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+
+        objectMapper.writeValue(
+                response.getOutputStream(),
+                apiResponse
+        );
     }
-
 }

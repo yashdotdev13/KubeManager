@@ -1,8 +1,11 @@
 package com.kubemanager.auth_service.security.oauth2.service;
 
-
+import com.kubemanager.auth_service.entity.User;
 import com.kubemanager.auth_service.security.oauth2.info.GitHubOAuth2UserInfo;
 import com.kubemanager.auth_service.security.oauth2.info.OAuth2UserInfo;
+import com.kubemanager.auth_service.security.oauth2.user.OAuth2UserPrincipal;
+import com.kubemanager.auth_service.service.OAuthUserService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
@@ -13,18 +16,26 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
+@RequiredArgsConstructor
+public class CustomOAuth2UserService
+        implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
-    private final DefaultOAuth2UserService delegate = new DefaultOAuth2UserService();
+    private final OAuthUserService oauthUserService;
+
+    private final DefaultOAuth2UserService delegate =
+            new DefaultOAuth2UserService();
 
     @Override
-    public OAuth2User loadUser(OAuth2UserRequest userRequest)
-            throws OAuth2AuthenticationException {
+    public OAuth2User loadUser(
+            OAuth2UserRequest userRequest
+    ) throws OAuth2AuthenticationException {
 
-        OAuth2User oauth2User = delegate.loadUser(userRequest);
+        OAuth2User oauth2User =
+                delegate.loadUser(userRequest);
 
         String registrationId =
-                userRequest.getClientRegistration().getRegistrationId();
+                userRequest.getClientRegistration()
+                        .getRegistrationId();
 
         OAuth2UserInfo userInfo;
 
@@ -37,26 +48,38 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
             default ->
                     throw new OAuth2AuthenticationException(
-                            "Unsupported OAuth2 Provider: " + registrationId
+                            "Unsupported OAuth2 Provider: "
+                                    + registrationId
                     );
         }
 
         log.info(
-                "OAuth2 login request received from '{}' for '{}'.",
+                "OAuth2 login request received from provider '{}' for user '{}'.",
                 registrationId,
-                userInfo.getUsername()
+                userInfo.getEmail()
         );
 
         /*
-         * For now we simply return the OAuth2User.
-         *
-         * In the next step we will:
-         * 1. Find existing user.
-         * 2. Create user if first login.
-         * 3. Update avatar.
-         * 4. Save provider/providerId.
+         * Find existing user or create a new OAuth user.
          */
+        User user = oauthUserService.processOauth2UserInfo(
+                registrationId,
+                userInfo
+        );
 
-        return oauth2User;
+        log.info(
+                "OAuth2 authentication completed successfully for '{}'.",
+                user.getEmail()
+        );
+
+        /*
+         * Return our custom principal instead of Spring's DefaultOAuth2User.
+         */
+        return new OAuth2UserPrincipal(
+                user,
+                oauth2User.getAttributes(),
+                oauth2User.getAuthorities()
+        );
     }
+
 }
