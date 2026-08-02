@@ -38,6 +38,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     private final UserMapper userMapper;
     private final JwtProperties jwtProperties;
     private final AuthenticationManager authenticationManager;
+    private final AuthenticationTokenService authenticationTokenService;
 
 
     @Override
@@ -90,22 +91,16 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     );
                 });
 
-        refreshTokenService.deleteByUser(user);
+        AuthenticationResponse response =
+                authenticationTokenService
+                        .createAuthenticationResponse(user);
 
-        String accessToken = jwtService.generateAccessToken(user);
-
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
-
-        UserResponse userResponse = userMapper.toResponse(user);
-
-        log.info("User '{}' logged in successfully.", user.getUsername());
-
-        return authenticationMapper.toResponse(
-                userResponse,
-                accessToken,
-                refreshToken.getToken(),
-                jwtProperties.getAccessTokenExpirationSeconds()
+        log.info(
+                "User '{}' logged in successfully.",
+                user.getUsername()
         );
+
+        return response;
     }
 
     @Override
