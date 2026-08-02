@@ -1,5 +1,6 @@
 package com.kubemanager.user_service.auth;
 
+import java.util.UUID;
 
 public final class UserContextHolder {
 
@@ -15,6 +16,29 @@ public final class UserContextHolder {
 
     public static UserContext get() {
         return CONTEXT.get();
+    }
+
+    public static UserContext getRequiredContext() {
+
+        UserContext context = CONTEXT.get();
+
+        if (context == null) {
+            throw new IllegalStateException("User context is not available.");
+        }
+
+        return context;
+    }
+
+    public static UUID getCurrentUserId() {
+        return getRequiredContext().getUserId();
+    }
+
+    public static String getCurrentUsername() {
+        return getRequiredContext().getUsername();
+    }
+
+    public static String getCurrentEmail() {
+        return getRequiredContext().getEmail();
     }
 
     public static void clear() {
