@@ -27,7 +27,16 @@ public enum ErrorCode {
     EMAIL_ALREADY_EXISTS("USER_003", "Email Already Exists"),
 
     // Role
-    ROLE_NOT_FOUND("ROLE_001", "Role Not Found");
+    ROLE_NOT_FOUND("ROLE_001", "Role Not Found"),
+
+    // User Profile
+    USER_PROFILE_NOT_FOUND("PROFILE_001", "User Profile Not Found"),
+    USER_PROFILE_ALREADY_EXISTS("PROFILE_002", "User Profile Already Exists"),
+    INVALID_USER_PROFILE("PROFILE_003", "Invalid User Profile"),
+
+    // User Preference
+    USER_PREFERENCE_NOT_FOUND("PREFERENCE_001", "User Preference Not Found"),
+    INVALID_USER_PREFERENCE("PREFERENCE_002", "Invalid User Preference");
 
     private final String code;
     private final String message;
