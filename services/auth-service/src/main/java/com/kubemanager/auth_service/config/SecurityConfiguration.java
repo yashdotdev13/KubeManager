@@ -1,6 +1,9 @@
 package com.kubemanager.auth_service.config;
 
 import com.kubemanager.auth_service.security.filter.JwtAuthenticationFilter;
+import com.kubemanager.auth_service.security.oauth2.handler.OAuth2AuthenticationFailureHandler;
+import com.kubemanager.auth_service.security.oauth2.handler.OAuth2AuthenticationSuccessHandler;
+import com.kubemanager.auth_service.security.oauth2.service.CustomOAuth2UserService;
 import com.kubemanager.auth_service.security.service.UserDetailsServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -24,6 +27,10 @@ public class SecurityConfiguration {
     private final PasswordEncoder passwordEncoder;
     private final UserDetailsServiceImpl userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2AuthenticationSuccessHandler oauth2AuthenticationSuccessHandler;
+    private final OAuth2AuthenticationFailureHandler oauth2AuthenticationFailureHandler;
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
@@ -53,21 +60,22 @@ public class SecurityConfiguration {
         http
 
                 .csrf(csrf -> csrf.disable())
-
                 .cors(Customizer.withDefaults())
-
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
+                                SessionCreationPolicy.IF_REQUIRED
                         )
                 )
 
                 .authorizeHttpRequests(auth -> auth
-
                         .requestMatchers(
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/refresh",
+
+                                "/oauth2/**",
+                                "/login/oauth2/**",
+
                                 "/actuator/**"
                         ).permitAll()
 
@@ -76,11 +84,26 @@ public class SecurityConfiguration {
                                 "/**"
                         ).permitAll()
 
-                        .anyRequest().authenticated()
+                        .anyRequest()
+                        .authenticated()
+                )
+
+                .oauth2Login(oauth2 -> oauth2
+
+                        .userInfoEndpoint(userInfo ->
+                                userInfo.userService(
+                                        customOAuth2UserService
+                                )
+                        )
+                        .successHandler(
+                                oauth2AuthenticationSuccessHandler
+                        )
+                        .failureHandler(
+                                oauth2AuthenticationFailureHandler
+                        )
                 )
 
                 .authenticationProvider(authenticationProvider())
-
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
@@ -88,5 +111,4 @@ public class SecurityConfiguration {
 
         return http.build();
     }
-
 }
