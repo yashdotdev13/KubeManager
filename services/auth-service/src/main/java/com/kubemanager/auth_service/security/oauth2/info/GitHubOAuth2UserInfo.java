@@ -1,7 +1,6 @@
 package com.kubemanager.auth_service.security.oauth2.info;
 
 
-import com.kubemanager.auth_service.security.oauth2.OAuth2UserInfo;
 import lombok.RequiredArgsConstructor;
 
 import java.util.Map;

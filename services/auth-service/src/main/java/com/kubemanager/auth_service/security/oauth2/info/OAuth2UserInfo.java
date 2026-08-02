@@ -1,4 +1,4 @@
-package com.kubemanager.auth_service.security.oauth2;
+package com.kubemanager.auth_service.security.oauth2.info;
 
 
 public interface OAuth2UserInfo {
