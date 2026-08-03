@@ -108,17 +108,124 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     @Override
-    public UserProfileResponse getProfileByUserId(UUID userId) {
-        return null;
+    @Transactional(readOnly = true)
+    public UserProfileResponse getProfileByUserId(
+            UUID userId
+    ) {
+
+        log.info("Fetching profile for user '{}'.", userId);
+
+        UserProfile profile = userProfileRepository
+                .findByUserId(userId)
+                .orElseThrow(() -> {
+
+                    log.warn(
+                            "Profile not found for user '{}'.",
+                            userId
+                    );
+
+                    return new ResourceNotFoundException(
+                            ErrorCode.USER_PROFILE_NOT_FOUND,
+                            "User profile not found."
+                    );
+                });
+
+        log.info(
+                "Profile fetched successfully for user '{}'.",
+                userId
+        );
+
+        return userProfileMapper.toResponse(profile);
     }
 
     @Override
-    public UserProfileResponse updateProfile(UpdateUserProfileRequest request) {
-        return null;
+    public UserProfileResponse updateProfile(
+            UpdateUserProfileRequest request
+    ) {
+
+        if (request == null) {
+            throw new BadRequestException(
+                    ErrorCode.INVALID_USER_PROFILE,
+                    "Request body cannot be null."
+            );
+        }
+
+        UserContext userContext = UserContextHolder.getRequiredContext();
+        UUID userId = userContext.getUserId();
+
+        log.info(
+                "Updating profile for user '{}' ({}).",
+                userContext.getUsername(),
+                userId
+        );
+
+        UserProfile profile = userProfileRepository
+                .findByUserId(userId)
+                .orElseThrow(() -> {
+
+                    log.warn(
+                            "Profile not found for user '{}' ({}).",
+                            userContext.getUsername(),
+                            userId
+                    );
+
+                    return new ResourceNotFoundException(
+                            ErrorCode.USER_PROFILE_NOT_FOUND,
+                            "User profile not found."
+                    );
+                });
+
+        userProfileMapper.updateEntity(
+                profile,
+                request
+        );
+
+        UserProfile updatedProfile =
+                userProfileRepository.save(profile);
+
+        log.info(
+                "Profile updated successfully for user '{}' ({}).",
+                userContext.getUsername(),
+                userId
+        );
+
+        return userProfileMapper.toResponse(updatedProfile);
     }
 
     @Override
     public void deleteProfile() {
 
+        UserContext userContext = UserContextHolder.getRequiredContext();
+        UUID userId = userContext.getUserId();
+
+        log.info(
+                "Deleting profile for user '{}' ({}).",
+                userContext.getUsername(),
+                userId
+        );
+
+        UserProfile profile = userProfileRepository
+                .findByUserId(userId)
+                .orElseThrow(() -> {
+
+                    log.warn(
+                            "Profile not found for user '{}' ({}).",
+                            userContext.getUsername(),
+                            userId
+                    );
+
+                    return new ResourceNotFoundException(
+                            ErrorCode.USER_PROFILE_NOT_FOUND,
+                            "User profile not found."
+                    );
+                });
+
+        userProfileRepository.delete(profile);
+
+        log.info(
+                "Profile deleted successfully for user '{}' ({}).",
+                userContext.getUsername(),
+                userId
+        );
     }
 }
