@@ -4,6 +4,7 @@ package com.kubemanager.user_service.service.Impl;
 import com.kubemanager.exception.BadRequestException;
 import com.kubemanager.exception.ConflictException;
 import com.kubemanager.exception.ErrorCode;
+import com.kubemanager.exception.ResourceNotFoundException;
 import com.kubemanager.user_service.auth.UserContext;
 import com.kubemanager.user_service.auth.UserContextHolder;
 import com.kubemanager.user_service.dtos.request.CreateUserProfileRequest;
@@ -80,8 +81,30 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserProfileResponse getCurrentUserProfile() {
-        return null;
+
+
+        UserContext userContext = UserContextHolder.getRequiredContext();
+        UUID userId = userContext.getUserId();
+
+        log.info("Fetching profile for the user '{}' ({}).",
+                userContext.getUsername(),userId);
+
+        UserProfile profile = userProfileRepository.findById(userId)
+                .orElseThrow(()->{
+                    log.warn("Profile not found for user '{}' ({})",
+                            userContext.getUsername(),userId);
+
+                    return new ResourceNotFoundException(
+                            ErrorCode.USER_PROFILE_NOT_FOUND,
+                            "Profile not found for user '"
+                    );
+                });
+        log.info("Profile fetched successfully for user '{}' ({}).",userContext.getUsername(),userId);
+
+        return userProfileMapper.toResponse(profile);
+
     }
 
     @Override
