@@ -26,6 +26,8 @@ public class UserProfileController {
             @Valid @RequestBody CreateUserProfileRequest request
     ) {
 
+        System.out.println("******** USER SERVICE HIT ********");
+
         return ApiResponse.success(
                 "Profile created successfully.",
                 userProfileService.createProfile(request)
@@ -43,7 +45,7 @@ public class UserProfileController {
 
     @GetMapping("/{userId}")
     public ApiResponse<UserProfileResponse> getProfileByUserId(
-            @PathVariable UUID userId
+            @PathVariable("userId") UUID userId
     ) {
 
         return ApiResponse.success(

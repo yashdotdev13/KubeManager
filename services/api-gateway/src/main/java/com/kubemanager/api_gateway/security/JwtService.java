@@ -20,7 +20,7 @@ public class JwtService {
 
         return JwtClaims.builder()
                 .userId(claims.get(JwtConstants.USER_ID, String.class))
-                .username(claims.get(JwtConstants.USERNAME, String.class))
+                .username(claims.getSubject())      // IMPORTANT
                 .email(claims.get(JwtConstants.EMAIL, String.class))
                 .roles(claims.get(JwtConstants.ROLES, java.util.List.class))
                 .build();

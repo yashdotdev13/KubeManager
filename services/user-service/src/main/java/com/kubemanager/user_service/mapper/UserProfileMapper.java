@@ -52,15 +52,27 @@ public class UserProfileMapper {
             UpdateUserProfileRequest request
     ) {
 
+        if (profile.getPersonalInfo() == null) {
+            profile.setPersonalInfo(new PersonalInfo());
+        }
+
+        if (profile.getProfessionalInfo() == null) {
+            profile.setProfessionalInfo(new ProfessionalInfo());
+        }
+
+        if (profile.getContactInfo() == null) {
+            profile.setContactInfo(new ContactInfo());
+        }
+
         profile.getPersonalInfo().setFirstName(request.getFirstName());
         profile.getPersonalInfo().setLastName(request.getLastName());
         profile.getPersonalInfo().setDisplayName(request.getDisplayName());
 
-        profile.getContactInfo().setPhoneNumber(request.getPhoneNumber());
-
         profile.getProfessionalInfo().setOrganization(request.getOrganization());
         profile.getProfessionalInfo().setDepartment(request.getDepartment());
         profile.getProfessionalInfo().setJobTitle(request.getJobTitle());
+
+        profile.getContactInfo().setPhoneNumber(request.getPhoneNumber());
 
         profile.setBio(request.getBio());
         profile.setTimezone(request.getTimezone());

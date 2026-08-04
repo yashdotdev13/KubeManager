@@ -10,8 +10,11 @@ import com.kubemanager.user_service.auth.UserContextHolder;
 import com.kubemanager.user_service.dtos.request.CreateUserProfileRequest;
 import com.kubemanager.user_service.dtos.request.UpdateUserProfileRequest;
 import com.kubemanager.user_service.dtos.response.UserProfileResponse;
+import com.kubemanager.user_service.entity.UserPreference;
 import com.kubemanager.user_service.entity.UserProfile;
+import com.kubemanager.user_service.mapper.UserPreferenceMapper;
 import com.kubemanager.user_service.mapper.UserProfileMapper;
+import com.kubemanager.user_service.repository.UserPreferenceRepository;
 import com.kubemanager.user_service.repository.UserProfileRepository;
 import com.kubemanager.user_service.service.UserProfileService;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,8 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     private final UserProfileRepository userProfileRepository;
     private final UserProfileMapper userProfileMapper;
+    private final UserPreferenceMapper userPreferenceMapper;
+    private final UserPreferenceRepository userPreferenceRepository;
 
 
 
@@ -70,7 +75,19 @@ public class UserProfileServiceImpl implements UserProfileService {
         UserProfile profile = userProfileMapper.toEntity(request);
         profile.setUserId(userId);
 
-        UserProfile savedProfile = userProfileRepository.save(profile);
+        UserProfile savedProfile =
+                userProfileRepository.save(profile);
+
+        UserPreference preference =
+                userPreferenceMapper.toEntity(userId);
+
+        userPreferenceRepository.save(preference);
+
+        log.info(
+                "Default preferences created for user '{}' ({}).",
+                userContext.getUsername(),
+                userId
+        );
 
         log.info(
                 "Profile created successfully for user '{}' ({})",
@@ -84,27 +101,37 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Transactional(readOnly = true)
     public UserProfileResponse getCurrentUserProfile() {
 
-
         UserContext userContext = UserContextHolder.getRequiredContext();
         UUID userId = userContext.getUserId();
 
-        log.info("Fetching profile for the user '{}' ({}).",
-                userContext.getUsername(),userId);
+        log.info(
+                "Fetching profile for the user '{}' ({}).",
+                userContext.getUsername(),
+                userId
+        );
 
-        UserProfile profile = userProfileRepository.findById(userId)
-                .orElseThrow(()->{
-                    log.warn("Profile not found for user '{}' ({})",
-                            userContext.getUsername(),userId);
+        UserProfile profile = userProfileRepository.findByUserId(userId)
+                .orElseThrow(() -> {
+
+                    log.warn(
+                            "Profile not found for user '{}' ({})",
+                            userContext.getUsername(),
+                            userId
+                    );
 
                     return new ResourceNotFoundException(
                             ErrorCode.USER_PROFILE_NOT_FOUND,
-                            "Profile not found for user '"
+                            "Profile not found for user '" + userContext.getUsername() + "'."
                     );
                 });
-        log.info("Profile fetched successfully for user '{}' ({}).",userContext.getUsername(),userId);
+
+        log.info(
+                "Profile fetched successfully for user '{}' ({}).",
+                userContext.getUsername(),
+                userId
+        );
 
         return userProfileMapper.toResponse(profile);
-
     }
 
     @Override

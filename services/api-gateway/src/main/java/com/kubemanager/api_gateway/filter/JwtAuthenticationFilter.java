@@ -1,15 +1,17 @@
 package com.kubemanager.api_gateway.filter;
 
 import com.kubemanager.api_gateway.model.AuthenticatedUser;
+import com.kubemanager.api_gateway.security.HeaderConstants;
 import com.kubemanager.api_gateway.security.JwtClaims;
 import com.kubemanager.api_gateway.security.JwtConstants;
 import com.kubemanager.api_gateway.security.JwtService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -19,6 +21,7 @@ import reactor.core.publisher.Mono;
 import java.util.Collections;
 import java.util.List;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter implements WebFilter {
@@ -26,10 +29,14 @@ public class JwtAuthenticationFilter implements WebFilter {
     private final JwtService jwtService;
 
     @Override
-    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+    public Mono<Void> filter(
+            ServerWebExchange exchange,
+            WebFilterChain chain
+    ) {
 
-        String authorizationHeader =
-                exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        String authorizationHeader = exchange.getRequest()
+                .getHeaders()
+                .getFirst(HttpHeaders.AUTHORIZATION);
 
         if (authorizationHeader == null
                 || !authorizationHeader.startsWith(JwtConstants.BEARER)) {
@@ -67,7 +74,46 @@ public class JwtAuthenticationFilter implements WebFilter {
                         authorities
                 );
 
-        return chain.filter(exchange)
+        ServerHttpRequest mutatedRequest = exchange.getRequest()
+                .mutate()
+                .header(HeaderConstants.USER_ID, claims.getUserId())
+                .header(
+                        HeaderConstants.USERNAME,
+                        claims.getUsername() == null ? "" : claims.getUsername()
+                )
+                .header(
+                        HeaderConstants.EMAIL,
+                        claims.getEmail() == null ? "" : claims.getEmail()
+                )
+                .header(
+                        HeaderConstants.ROLES,
+                        claims.getRoles() == null
+                                ? ""
+                                : String.join(",", claims.getRoles())
+                )
+                .header(
+                        HeaderConstants.CORRELATION_ID,
+                        exchange.getRequest()
+                                .getHeaders()
+                                .getFirst(CorrelationIdFilter.CORRELATION_ID)
+                )
+                .build();
+
+        ServerWebExchange mutatedExchange = exchange.mutate()
+                .request(mutatedRequest)
+                .build();
+
+        log.info("""
+                Forwarding User Context:
+                X-User-Id={}
+                X-Username={}
+                X-Roles={}
+                """,
+                claims.getUserId(),
+                claims.getUsername(),
+                claims.getRoles());
+
+        return chain.filter(mutatedExchange)
                 .contextWrite(
                         ReactiveSecurityContextHolder.withAuthentication(authentication)
                 );

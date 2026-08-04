@@ -49,6 +49,7 @@ public class SecurityConfiguration {
                         .anyExchange()
                         .authenticated()
                 )
+
                 .build();
     }
 }

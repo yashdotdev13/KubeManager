@@ -27,9 +27,19 @@ public class JwtTokenValidator {
                     .build()
                     .parseSignedClaims(token);
 
+            System.out.println("================================");
+            System.out.println("JWT VALID");
+            System.out.println("================================");
+
             return true;
 
         } catch (Exception ex) {
+
+            System.out.println("================================");
+            System.out.println("JWT VALIDATION FAILED");
+            ex.printStackTrace();
+            System.out.println("================================");
+
             return false;
         }
     }

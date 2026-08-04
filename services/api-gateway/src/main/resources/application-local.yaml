@@ -69,9 +69,6 @@ spring:
           predicates:
             - Path=/api/v1/users/**
 
-          filters:
-            - StripPrefix=2
-
 
         - id: cluster-service
           uri: lb://CLUSTER-SERVICE

@@ -6,8 +6,13 @@ import com.kubemanager.user_service.dtos.response.NotificationPreferenceResponse
 import com.kubemanager.user_service.dtos.response.UserPreferenceResponse;
 import com.kubemanager.user_service.dtos.response.WorkspacePreferenceResponse;
 import com.kubemanager.user_service.entity.UserPreference;
+import com.kubemanager.user_service.entity.embeddable.AIPreference;
+import com.kubemanager.user_service.entity.embeddable.NotificationPreference;
+import com.kubemanager.user_service.entity.embeddable.WorkspacePreference;
 import com.kubemanager.user_service.enums.Theme;
 import org.springframework.stereotype.Component;
+
+import java.util.UUID;
 
 @Component
 public class UserPreferenceMapper {
@@ -88,6 +93,39 @@ public class UserPreferenceMapper {
 
         preference.getAiPreference().setAiSuggestionsEnabled(true);
         preference.getAiPreference().setAllowAiClusterActions(false);
+    }
+
+
+    public UserPreference toEntity(UUID userId) {
+
+        return UserPreference.builder()
+
+                .userId(userId)
+
+                .workspacePreference(
+                        WorkspacePreference.builder()
+                                .theme(Theme.SYSTEM)
+                                .defaultCluster(null)
+                                .defaultNamespace(null)
+                                .build()
+                )
+
+                .notificationPreference(
+                        NotificationPreference.builder()
+                                .emailNotification(true)
+                                .slackNotification(false)
+                                .desktopNotification(true)
+                                .build()
+                )
+
+                .aiPreference(
+                        AIPreference.builder()
+                                .aiSuggestionsEnabled(true)
+                                .allowAiClusterActions(false)
+                                .build()
+                )
+
+                .build();
     }
 
 }
