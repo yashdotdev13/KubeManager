@@ -6,6 +6,7 @@ import com.kubemanager.user_service.dtos.response.NotificationPreferenceResponse
 import com.kubemanager.user_service.dtos.response.UserPreferenceResponse;
 import com.kubemanager.user_service.dtos.response.WorkspacePreferenceResponse;
 import com.kubemanager.user_service.entity.UserPreference;
+import com.kubemanager.user_service.enums.Theme;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -71,6 +72,22 @@ public class UserPreferenceMapper {
                 )
 
                 .build();
+    }
+
+
+
+    public void resetToDefault(UserPreference preference) {
+
+        preference.getWorkspacePreference().setTheme(Theme.SYSTEM);
+        preference.getWorkspacePreference().setDefaultCluster(null);
+        preference.getWorkspacePreference().setDefaultNamespace(null);
+
+        preference.getNotificationPreference().setEmailNotification(true);
+        preference.getNotificationPreference().setSlackNotification(false);
+        preference.getNotificationPreference().setDesktopNotification(true);
+
+        preference.getAiPreference().setAiSuggestionsEnabled(true);
+        preference.getAiPreference().setAllowAiClusterActions(false);
     }
 
 }
