@@ -1,0 +1,15 @@
+package com.kubemanager.cluster_service;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+
+@SpringBootApplication
+@EnableFeignClients
+public class ClusterServiceApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ClusterServiceApplication.class, args);
+	}
+
+}

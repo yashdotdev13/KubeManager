@@ -36,7 +36,11 @@ public enum ErrorCode {
 
     // User Preference
     USER_PREFERENCE_NOT_FOUND("PREFERENCE_001", "User Preference Not Found"),
-    INVALID_USER_PREFERENCE("PREFERENCE_002", "Invalid User Preference");
+    INVALID_USER_PREFERENCE("PREFERENCE_002", "Invalid User Preference"),
+
+    INVALID_CLUSTER("CLUSTER_001","Invalid Cluster" ),
+    CLUSTER_ALREADY_EXISTS("CLUSTER_002", "Cluster Already Exists"),
+    CLUSTER_NOT_FOUND("CLUSTER_003", "Cluster nnt Found"),;
 
     private final String code;
     private final String message;

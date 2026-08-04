@@ -27,6 +27,7 @@
         <module>services/discovery-server</module>
         <module>services/auth-service</module>
         <module>services/user-service</module>
+        <module>services/cluster-service</module>
 
 
     </modules>
