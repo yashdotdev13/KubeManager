@@ -62,6 +62,14 @@ spring:
                 redis-rate-limiter.burstCapacity: 20
 
 
+
+        - id: user-service
+          uri: lb://USER-SERVICE
+
+          predicates:
+            - Path=/api/v1/users/**
+
+
         - id: cluster-service
           uri: lb://CLUSTER-SERVICE
           predicates:
