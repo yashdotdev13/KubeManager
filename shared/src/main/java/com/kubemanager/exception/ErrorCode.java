@@ -40,7 +40,8 @@ public enum ErrorCode {
 
     INVALID_CLUSTER("CLUSTER_001","Invalid Cluster" ),
     CLUSTER_ALREADY_EXISTS("CLUSTER_002", "Cluster Already Exists"),
-    CLUSTER_NOT_FOUND("CLUSTER_003", "Cluster nnt Found"),;
+    CLUSTER_NOT_FOUND("CLUSTER_003", "Cluster nnt Found"),
+    INVALID_CLUSTER_CONFIGURATION("CLUSTER_004", "Invalid Cluster Configuration" ),;
 
     private final String code;
     private final String message;

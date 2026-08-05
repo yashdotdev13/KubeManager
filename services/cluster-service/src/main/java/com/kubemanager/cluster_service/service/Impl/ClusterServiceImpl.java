@@ -8,6 +8,8 @@ import com.kubemanager.cluster_service.dto.request.UpdateClusterRequest;
 import com.kubemanager.cluster_service.dto.response.ClusterResponse;
 import com.kubemanager.cluster_service.dto.response.ClusterSummaryResponse;
 import com.kubemanager.cluster_service.entity.Cluster;
+import com.kubemanager.cluster_service.kubernates.metadata.ClusterMetadata;
+import com.kubemanager.cluster_service.kubernates.service.KubernetesConnectionService;
 import com.kubemanager.cluster_service.mapper.ClusterMapper;
 import com.kubemanager.cluster_service.repository.ClusterRepository;
 import com.kubemanager.cluster_service.service.ClusterService;
@@ -19,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -31,6 +34,7 @@ public class ClusterServiceImpl implements ClusterService {
 
     private final ClusterRepository clusterRepository;
     private final ClusterMapper clusterMapper;
+    private final KubernetesConnectionService kubernetesConnectionService;
 
 
     @Override
@@ -182,5 +186,76 @@ public class ClusterServiceImpl implements ClusterService {
                 "Cluster '{}' deleted successfully.",
                 cluster.getName()
         );
+    }
+
+    @Override
+    @Transactional
+    public ClusterResponse connectCluster(UUID clusterId, MultipartFile kubeConfig) {
+
+
+        if (kubeConfig == null || kubeConfig.isEmpty()) {
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "kubeConfig file is required"
+            );
+        }
+
+        UserContext userContext = UserContextHolder.getRequiredContext();
+        UUID ownerId = userContext.getUserId();
+
+        log.info("Connecting cluster '{}' for user '{}' ({})",
+                clusterId,
+                userContext.getUsername(),
+                ownerId);
+
+
+        Cluster cluster = clusterRepository.findByIdAndOwnerId(clusterId, ownerId)
+                .orElseThrow(() -> {
+
+                    log.warn("Cluster '{}' not found for user '{}'", clusterId, ownerId);
+
+                    return new ResourceNotFoundException(ErrorCode.CLUSTER_NOT_FOUND,
+                            "Cluster not found.");
+                });
+        ClusterMetadata metadata =
+                kubernetesConnectionService.connect(kubeConfig);
+
+        cluster.setApiServer(
+                metadata.getApiServer()
+        );
+
+        cluster.setKubernetesVersion(
+                metadata.getKubernetesVersion()
+        );
+
+        cluster.setPlatform(
+                metadata.getPlatform()
+        );
+
+        cluster.setNodeCount(
+                metadata.getNodeCount()
+        );
+
+        cluster.setNamespaceCount(
+                metadata.getNamespaceCount()
+        );
+
+        cluster.setStatus(
+                metadata.getStatus()
+        );
+
+        cluster.setLastHealthCheck(
+                metadata.getLastHealthCheck()
+        );
+
+        Cluster updatedCluster =
+                clusterRepository.save(cluster);
+
+        log.info(
+                "Cluster '{}' connected successfully.",
+                updatedCluster.getId()
+        );
+
+        return clusterMapper.toResponse(updatedCluster);
     }
 }
