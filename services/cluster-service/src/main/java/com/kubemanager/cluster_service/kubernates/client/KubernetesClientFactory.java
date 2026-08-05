@@ -1,4 +1,4 @@
-package com.kubemanager.cluster_service.kubernates;
+package com.kubemanager.cluster_service.kubernates.client;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
 import org.springframework.web.multipart.MultipartFile;

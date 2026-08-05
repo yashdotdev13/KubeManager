@@ -1,7 +1,6 @@
 package com.kubemanager.cluster_service.kubernates.client;
 
 
-import com.kubemanager.cluster_service.kubernates.KubernetesClientFactory;
 import com.kubemanager.exception.BadRequestException;
 import com.kubemanager.exception.ErrorCode;
 import io.fabric8.kubernetes.client.Config;
