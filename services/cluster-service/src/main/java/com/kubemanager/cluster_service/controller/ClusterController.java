@@ -9,7 +9,9 @@ import com.kubemanager.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -79,6 +81,30 @@ public class ClusterController {
         return ApiResponse.success(
                 "Cluster deleted successfully.",
                 null
+        );
+    }
+
+
+    @PostMapping(
+            value = "/{clusterId}/connect",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<ClusterResponse> connectCluster(
+
+            @PathVariable("clusterId")
+            UUID clusterId,
+
+            @RequestPart("kubeConfig")
+            MultipartFile kubeConfig
+    ) {
+
+        return ApiResponse.success(
+                "Cluster connected successfully.",
+                clusterService.connectCluster(
+                        clusterId,
+                        kubeConfig
+                )
         );
     }
 }

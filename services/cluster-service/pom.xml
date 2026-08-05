@@ -88,11 +88,9 @@
 			<scope>test</scope>
 		</dependency>
 
-		<!-- Fabric8 Kubernetes Client -->
 		<dependency>
 			<groupId>io.fabric8</groupId>
 			<artifactId>kubernetes-client</artifactId>
-			<version>7.4.0</version>
 		</dependency>
 
 	</dependencies>

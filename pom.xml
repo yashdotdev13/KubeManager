@@ -3,9 +3,17 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
+
+    <!-- Spring Boot Parent -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.5</version>
+        <relativePath/>
+    </parent>
 
     <groupId>com.kubemanager</groupId>
     <artifactId>kubemanager-parent</artifactId>
@@ -29,18 +37,23 @@
         <module>services/user-service</module>
         <module>services/cluster-service</module>
 
-
     </modules>
 
     <properties>
 
+        <!-- Java -->
         <java.version>21</java.version>
 
-        <spring.boot.version>3.3.4</spring.boot.version>
-        <spring.cloud.version>2023.0.3</spring.cloud.version>
+        <!-- Spring Cloud compatible with Spring Boot 3.5.x -->
+        <spring.cloud.version>2025.0.0</spring.cloud.version>
+
+        <!-- JWT -->
         <jjwt.version>0.12.6</jjwt.version>
+
+        <!-- Build -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
 
@@ -50,14 +63,7 @@
 
         <dependencies>
 
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-dependencies</artifactId>
-                <version>${spring.boot.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
+            <!-- Spring Cloud -->
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
@@ -69,5 +75,36 @@
         </dependencies>
 
     </dependencyManagement>
+
+    <build>
+
+        <pluginManagement>
+
+            <plugins>
+
+                <!-- Compiler -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+
+                    <configuration>
+                        <source>${java.version}</source>
+                        <target>${java.version}</target>
+                        <parameters>true</parameters>
+                    </configuration>
+
+                </plugin>
+
+                <!-- Spring Boot -->
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                </plugin>
+
+            </plugins>
+
+        </pluginManagement>
+
+    </build>
 
 </project>
