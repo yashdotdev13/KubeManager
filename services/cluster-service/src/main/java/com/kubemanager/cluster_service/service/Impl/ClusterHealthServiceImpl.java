@@ -37,6 +37,6 @@ public class ClusterHealthServiceImpl implements ClusterHealthService {
                 ));
 
 
-        if(cluster.getKubeC)
+        return  null;
     }
 }
