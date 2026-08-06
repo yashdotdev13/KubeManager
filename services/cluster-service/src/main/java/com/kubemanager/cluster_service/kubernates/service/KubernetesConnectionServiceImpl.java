@@ -95,6 +95,71 @@ public class KubernetesConnectionServiceImpl
         }
     }
 
+    @Override
+    public ClusterMetadata connect(String kubeConfigContent) {
+
+        try (
+                KubernetesClient client =
+                        kubernetesClientFactory.createClient(kubeConfigContent)
+        ) {
+
+            log.info("Attempting to connect to Kubernetes cluster.");
+
+            ClusterMetadata metadata = fetchClusterMetadata(client);
+
+            log.info(
+                    "Successfully connected to Kubernetes cluster. Version={}, Nodes={}, Namespaces={}",
+                    metadata.getKubernetesVersion(),
+                    metadata.getNodeCount(),
+                    metadata.getNamespaceCount()
+            );
+
+            return metadata;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to connect to Kubernetes cluster.",
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to connect to the Kubernetes cluster using the provided kubeconfig."
+            );
+        }
+    }
+
+    @Override
+    public ClusterMetadata fetchClusterMetadata(KubernetesClient client) {
+
+        VersionInfo versionInfo = client.getKubernetesVersion();
+
+        int nodeCount = client.nodes()
+                .list()
+                .getItems()
+                .size();
+
+        int namespaceCount = client.namespaces()
+                .list()
+                .getItems()
+                .size();
+
+        String apiServer = client.getConfiguration().getMasterUrl();
+
+        PlatformType platform = detectPlatform(client);
+
+        return ClusterMetadata.builder()
+                .apiServer(apiServer)
+                .kubernetesVersion(versionInfo.getGitVersion())
+                .platform(platform)
+                .nodeCount(nodeCount)
+                .namespaceCount(namespaceCount)
+                .status(ClusterStatus.CONNECTED)
+                .lastHealthCheck(LocalDateTime.now())
+                .build();
+    }
+
     private PlatformType detectPlatform(
             KubernetesClient client
     ) {
