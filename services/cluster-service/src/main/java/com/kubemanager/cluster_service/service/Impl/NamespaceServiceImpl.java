@@ -86,7 +86,60 @@ public class NamespaceServiceImpl implements NamespaceService {
 
     @Override
     public NamespaceResponse getNamespace(UUID clusterId, String namespace) {
-        return null;
+
+
+        log.info("Fetching namespace '{}' for cluster '{}'",namespace, clusterId);
+
+        Cluster cluster =   clusterRepository.findById(clusterId)
+                .orElseThrow(()->new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "cluster not found"
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            Namespace kubernetesNamespace = client.namespaces()
+                    .withName(namespace)
+                    .get();
+
+            if (kubernetesNamespace == null) {
+
+                throw new ResourceNotFoundException(
+                                ErrorCode.NOT_FOUND,
+                        "Namespace not found."
+                );
+            }
+
+            return namespaceMapper.toResponse(kubernetesNamespace);
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch namespace '{}'",
+                    namespace,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to fetch namespace."
+            );
+        }
     }
 
     @Override
