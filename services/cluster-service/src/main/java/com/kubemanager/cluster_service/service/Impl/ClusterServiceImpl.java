@@ -23,6 +23,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
@@ -220,36 +222,32 @@ public class ClusterServiceImpl implements ClusterService {
         ClusterMetadata metadata =
                 kubernetesConnectionService.connect(kubeConfig);
 
-        cluster.setApiServer(
-                metadata.getApiServer()
-        );
+        try {
 
-        cluster.setKubernetesVersion(
-                metadata.getKubernetesVersion()
-        );
+            cluster.setEncryptedKubeConfig(
+                    new String(
+                            kubeConfig.getBytes(),
+                            StandardCharsets.UTF_8
+                    )
+            );
 
-        cluster.setPlatform(
-                metadata.getPlatform()
-        );
+        } catch (IOException exception) {
 
-        cluster.setNodeCount(
-                metadata.getNodeCount()
-        );
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to read kubeconfig."
+            );
+        }
 
-        cluster.setNamespaceCount(
-                metadata.getNamespaceCount()
-        );
+        cluster.setApiServer(metadata.getApiServer());
+        cluster.setKubernetesVersion(metadata.getKubernetesVersion());
+        cluster.setPlatform(metadata.getPlatform());
+        cluster.setNodeCount(metadata.getNodeCount());
+        cluster.setNamespaceCount(metadata.getNamespaceCount());
+        cluster.setStatus(metadata.getStatus());
+        cluster.setLastHealthCheck(metadata.getLastHealthCheck());
 
-        cluster.setStatus(
-                metadata.getStatus()
-        );
-
-        cluster.setLastHealthCheck(
-                metadata.getLastHealthCheck()
-        );
-
-        Cluster updatedCluster =
-                clusterRepository.save(cluster);
+        Cluster updatedCluster = clusterRepository.save(cluster);
 
         log.info(
                 "Cluster '{}' connected successfully.",
