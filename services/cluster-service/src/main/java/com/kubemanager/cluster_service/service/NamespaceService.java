@@ -10,7 +10,7 @@ import java.util.UUID;
 public interface NamespaceService {
 
 
-    List<NamespaceSummaryResponse> getNamespace(UUID clusterId);
+    List<NamespaceSummaryResponse> getNamespaces(UUID clusterId);
 
     NamespaceResponse getNamespace(UUID clusterId, String namespace);
 
