@@ -226,8 +226,84 @@ public class NamespaceServiceImpl implements NamespaceService {
     }
 
     @Override
-    public void deleteNamespace(UUID clusterId, String namespace) {
+    public void deleteNamespace(
+            UUID clusterId,
+            String namespace
+    ) {
 
+        log.info(
+                "Deleting namespace '{}' from cluster '{}'",
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            Namespace existingNamespace = client.namespaces()
+                    .withName(namespace)
+                    .get();
+
+            if (existingNamespace == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.NAMESPACE_NOT_FOUND,
+                        "Namespace not found."
+                );
+            }
+
+            boolean deleted = client.namespaces()
+                    .withName(namespace)
+                    .delete()
+                    .size() > 0;
+
+            if (!deleted) {
+
+                throw new BadRequestException(
+                        ErrorCode.NAMESPACE_DELETE_FAILED,
+                        "Failed to delete namespace."
+                );
+            }
+
+            log.info(
+                    "Namespace '{}' deleted successfully.",
+                    namespace
+            );
+
+        } catch (ResourceNotFoundException | BadRequestException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to delete namespace '{}'",
+                    namespace,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to delete namespace."
+            );
+        }
     }
 
 }

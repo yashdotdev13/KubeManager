@@ -45,7 +45,10 @@ public enum ErrorCode {
 
     NAMESPACE_ALREADY_EXISTS("NAMESPACE_001", "Namespace Already Exists"),
 
-    INVALID_REQUEST("NAMESPACE_002", "Invalid Request");
+    INVALID_REQUEST("NAMESPACE_002", "Invalid Request"),
+
+    NAMESPACE_NOT_FOUND("NAMESPACE_003","Namespace Not Found" ),
+    NAMESPACE_DELETE_FAILED("NAMESPACE_004","Namespace Delete Failed");
 
     private final String code;
     private final String message;
