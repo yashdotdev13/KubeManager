@@ -12,3 +12,6 @@ public interface  UserProfileRepository extends JpaRepository<UserProfile, UUID>
 
     boolean existsByUserId(UUID userId);
 }
+
+
+
