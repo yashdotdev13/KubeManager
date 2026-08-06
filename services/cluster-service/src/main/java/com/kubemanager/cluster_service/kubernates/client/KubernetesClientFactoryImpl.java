@@ -22,7 +22,6 @@ public class KubernetesClientFactoryImpl implements KubernetesClientFactory {
     @Override
     public KubernetesClient createClient(MultipartFile kubeConfig) {
 
-
         if (kubeConfig == null || kubeConfig.isEmpty()) {
 
             throw new BadRequestException(
@@ -33,11 +32,36 @@ public class KubernetesClientFactoryImpl implements KubernetesClientFactory {
 
         try {
 
-            String kubeConfigContent =
-                    new String(
-                            kubeConfig.getBytes(),
-                            StandardCharsets.UTF_8
-                    );
+            String kubeConfigContent = new String(
+                    kubeConfig.getBytes(),
+                    StandardCharsets.UTF_8
+            );
+
+            return createClient(kubeConfigContent);
+
+        } catch (IOException exception) {
+
+            log.error("Failed to read kubeconfig.", exception);
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Invalid kubeconfig file."
+            );
+        }
+    }
+
+    @Override
+    public KubernetesClient createClient(String kubeConfigContent) {
+
+        if (kubeConfigContent == null || kubeConfigContent.isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Kubeconfig content is required."
+            );
+        }
+
+        try {
 
             Config config = Config.fromKubeconfig(kubeConfigContent);
 
@@ -45,16 +69,16 @@ public class KubernetesClientFactoryImpl implements KubernetesClientFactory {
                     .withConfig(config)
                     .build();
 
-        } catch (IOException exception) {
+        } catch (Exception exception) {
 
             log.error(
-                    "Failed to read kubeconfig.",
+                    "Failed to create Kubernetes client.",
                     exception
             );
 
             throw new BadRequestException(
                     ErrorCode.INVALID_CLUSTER_CONFIGURATION,
-                    "Invalid kubeconfig file."
+                    "Invalid kubeconfig."
             );
         }
     }

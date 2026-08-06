@@ -95,6 +95,36 @@ public class KubernetesConnectionServiceImpl
         }
     }
 
+    @Override
+    public ClusterMetadata fetchClusterMetadata(KubernetesClient client) {
+
+        VersionInfo versionInfo = client.getKubernetesVersion();
+
+        int nodeCount = client.nodes()
+                .list()
+                .getItems()
+                .size();
+
+        int namespaceCount = client.namespaces()
+                .list()
+                .getItems()
+                .size();
+
+        String apiServer = client.getConfiguration().getMasterUrl();
+
+        PlatformType platform = detectPlatform(client);
+
+        return ClusterMetadata.builder()
+                .apiServer(apiServer)
+                .kubernetesVersion(versionInfo.getGitVersion())
+                .platform(platform)
+                .nodeCount(nodeCount)
+                .namespaceCount(namespaceCount)
+                .status(ClusterStatus.CONNECTED)
+                .lastHealthCheck(LocalDateTime.now())
+                .build();
+    }
+
     private PlatformType detectPlatform(
             KubernetesClient client
     ) {
