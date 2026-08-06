@@ -231,6 +231,11 @@ public class ClusterServiceImpl implements ClusterService {
                     )
             );
 
+            log.info(
+                    "Kubeconfig saved. Length={}",
+                    cluster.getEncryptedKubeConfig().length()
+            );
+
         } catch (IOException exception) {
 
             throw new BadRequestException(
@@ -250,8 +255,10 @@ public class ClusterServiceImpl implements ClusterService {
         Cluster updatedCluster = clusterRepository.save(cluster);
 
         log.info(
-                "Cluster '{}' connected successfully.",
-                updatedCluster.getId()
+                "Saved cluster. Kubeconfig length={}",
+                updatedCluster.getEncryptedKubeConfig() == null
+                        ? 0
+                        : updatedCluster.getEncryptedKubeConfig().length()
         );
 
         return clusterMapper.toResponse(updatedCluster);
