@@ -12,6 +12,7 @@ import com.kubemanager.exception.BadRequestException;
 import com.kubemanager.exception.ErrorCode;
 import com.kubemanager.exception.ResourceNotFoundException;
 import io.fabric8.kubernetes.api.model.Namespace;
+import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.NamespaceList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.RequiredArgsConstructor;
@@ -143,8 +144,85 @@ public class NamespaceServiceImpl implements NamespaceService {
     }
 
     @Override
-    public NamespaceResponse createNamespace(UUID clusterId, CreateNamespaceRequest request) {
-        return null;
+    public NamespaceResponse createNamespace(
+            UUID clusterId,
+            CreateNamespaceRequest request
+    ) {
+
+        if (request == null) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_REQUEST,
+                    "Request body cannot be null."
+            );
+        }
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            Namespace existingNamespace = client.namespaces()
+                    .withName(request.getName())
+                    .get();
+
+            if (existingNamespace != null) {
+
+                throw new BadRequestException(
+                        ErrorCode.NAMESPACE_ALREADY_EXISTS,
+                        "Namespace already exists."
+                );
+            }
+
+            Namespace namespace = new NamespaceBuilder()
+                    .withNewMetadata()
+                    .withName(request.getName())
+                    .endMetadata()
+                    .build();
+
+            Namespace createdNamespace = client.namespaces()
+                    .resource(namespace)
+                    .create();
+
+            log.info(
+                    "Namespace '{}' created successfully.",
+                    request.getName()
+            );
+
+            return namespaceMapper.toResponse(createdNamespace);
+
+        } catch (BadRequestException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to create namespace '{}'",
+                    request.getName(),
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to create namespace."
+            );
+        }
     }
 
     @Override
