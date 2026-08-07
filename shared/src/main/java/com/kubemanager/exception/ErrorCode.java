@@ -48,7 +48,9 @@ public enum ErrorCode {
     INVALID_REQUEST("NAMESPACE_002", "Invalid Request"),
 
     NAMESPACE_NOT_FOUND("NAMESPACE_003","Namespace Not Found" ),
-    NAMESPACE_DELETE_FAILED("NAMESPACE_004","Namespace Delete Failed");
+    NAMESPACE_DELETE_FAILED("NAMESPACE_004","Namespace Delete Failed"),
+
+    NODE_NOT_FOUND("NODE_001", "Node Not Found");
 
     private final String code;
     private final String message;
