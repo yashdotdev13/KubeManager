@@ -1,6 +1,6 @@
 package com.kubemanager.cluster_service.enums;
 
-public enum ServiceType {
+public enum KubernetesServiceType {
 
     CLUSTER_IP,
     NODE_PORT,

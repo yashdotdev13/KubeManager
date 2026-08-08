@@ -61,7 +61,11 @@ public enum ErrorCode {
     DEPLOYMENT_RESTART_FAILED("DEPLOYMENT_003","Deployment Restart Failed"),
     DEPLOYMENT_DELETE_FAILED("DEPLOYMENT_004","Deployment Delete Failed"),
     DEPLOYMENT_ALREADY_EXISTS("DEPLOYMENT_005", "Deployment Already Exists" ),
-    DEPLOYMENT_CREATION_FAILED("DEPLOYMENT_006", "Deployment Creation Failed" ),;
+    DEPLOYMENT_CREATION_FAILED("DEPLOYMENT_006", "Deployment Creation Failed" ),
+
+    SERVICE_ALREADY_EXISTS("SERVICE_001","Service Already Exists" ),
+
+    SERVICE_CREATION_FAILED("SERVICE_002","Service Creation Failed");
 
     private final String code;
     private final String message;

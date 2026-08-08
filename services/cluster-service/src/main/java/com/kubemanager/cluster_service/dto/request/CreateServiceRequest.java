@@ -1,14 +1,17 @@
 package com.kubemanager.cluster_service.dto.request;
 
 
-import com.kubemanager.cluster_service.enums.ServiceType;
+import com.kubemanager.cluster_service.enums.KubernetesServiceType;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.Map;
 
 @Data
 @Builder
@@ -22,8 +25,8 @@ public class CreateServiceRequest {
     @NotBlank(message = "Namespace is required.")
     private String namespace;
 
-    @NotBlank(message = "Selector is required.")
-    private String selector;
+    @NotEmpty(message = "Selector is required.")
+    private Map<String, String> selector;
 
     @NotNull(message = "Port is required.")
     @Min(value = 1)
@@ -34,5 +37,5 @@ public class CreateServiceRequest {
     private Integer targetPort;
 
     @NotNull(message = "Service type is required.")
-    private ServiceType type;
+    private KubernetesServiceType type;
 }
