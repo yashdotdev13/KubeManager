@@ -18,7 +18,7 @@ public class DeploymentSummaryResponse {
 
     private Integer replicas;
 
-    private Integer readReplicas;
+    private Integer readyReplicas;
 
     private Integer availableReplicas;
 
