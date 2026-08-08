@@ -1,5 +1,6 @@
 package com.kubemanager.cluster_service.service.Impl;
 
+import com.kubemanager.cluster_service.dto.request.CreateDeploymentRequest;
 import com.kubemanager.cluster_service.dto.request.ScaleDeploymentRequest;
 import com.kubemanager.cluster_service.dto.response.DeploymentResponse;
 import com.kubemanager.cluster_service.dto.response.DeploymentSummaryResponse;
@@ -12,6 +13,7 @@ import com.kubemanager.exception.BadRequestException;
 import com.kubemanager.exception.ErrorCode;
 import com.kubemanager.exception.ResourceNotFoundException;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.RequiredArgsConstructor;
@@ -403,5 +405,130 @@ public class DeploymentServiceImpl implements DeploymentService {
             );
         }
 
+    }
+
+    @Override
+    public DeploymentResponse createDeployment(UUID clusterId, CreateDeploymentRequest request) {
+
+
+        log.info("Creating deployment '{}' in namespace '{}'",
+                request.getName(), request.getNamespace());
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(()->new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found"
+                ));
+        if(cluster.getEncryptedKubeConfig()== null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            Deployment existingDeployment = client.apps()
+                    .deployments()
+                    .inNamespace(request.getNamespace())
+                    .withName(request.getName())
+                    .get();
+
+            if (existingDeployment != null) {
+
+                throw new BadRequestException(
+                        ErrorCode.DEPLOYMENT_ALREADY_EXISTS,
+                        "Deployment already exists."
+                );
+            }
+            Deployment deployment = buildDeployment(request);
+
+            Deployment createdDeployment = client.apps()
+                    .deployments()
+                    .inNamespace(request.getNamespace())
+                    .resource(deployment)
+                    .create();
+
+            log.info(
+                    "Deployment '{}' created successfully.",
+                    request.getName()
+            );
+
+            return deploymentMapper.toResponse(createdDeployment);
+
+        } catch (BadRequestException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to create deployment '{}'.",
+                    request.getName(),
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.DEPLOYMENT_CREATION_FAILED,
+                    "Unable to create deployment."
+            );
+        }
+    }
+
+
+    private Deployment buildDeployment(
+            CreateDeploymentRequest request
+    ) {
+
+        return new DeploymentBuilder()
+
+                .withNewMetadata()
+                .withName(request.getName())
+                .withNamespace(request.getNamespace())
+                .addToLabels("app", request.getName())
+                .endMetadata()
+
+                .withNewSpec()
+
+                .withReplicas(request.getReplicas())
+
+                .withNewSelector()
+                .addToMatchLabels("app", request.getName())
+                .endSelector()
+
+                .withNewTemplate()
+
+                .withNewMetadata()
+                .addToLabels("app", request.getName())
+                .endMetadata()
+
+                .withNewSpec()
+
+                .addNewContainer()
+
+                .withName(request.getName())
+
+                .withImage(request.getImage())
+
+                .addNewPort()
+                .withContainerPort(
+                        request.getContainerPort()
+                )
+                .endPort()
+
+                .endContainer()
+
+                .endSpec()
+
+                .endTemplate()
+
+                .endSpec()
+
+                .build();
     }
 }

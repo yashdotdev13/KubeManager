@@ -1,5 +1,6 @@
 package com.kubemanager.cluster_service.service;
 
+import com.kubemanager.cluster_service.dto.request.CreateDeploymentRequest;
 import com.kubemanager.cluster_service.dto.request.ScaleDeploymentRequest;
 import com.kubemanager.cluster_service.dto.response.DeploymentResponse;
 import com.kubemanager.cluster_service.dto.response.DeploymentSummaryResponse;
@@ -20,4 +21,7 @@ public interface  DeploymentService {
     void restartDeployment(UUID clusterId, String namespace, String deploymentName);
 
     void deleteDeployment(UUID clusterId, String namespace, String deploymentName);
+
+
+    DeploymentResponse createDeployment(UUID clusterId, CreateDeploymentRequest request);
 }

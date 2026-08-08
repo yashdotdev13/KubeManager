@@ -59,7 +59,9 @@ public enum ErrorCode {
     DEPLOYMENT_NOT_FOUND("DEPLOYMENT_001", "Deployment Not Found"),
     DEPLOYMENT_SCALE_FAILED("DEPLOYMENT_002", "Deployment Scale Failed"),
     DEPLOYMENT_RESTART_FAILED("DEPLOYMENT_003","Deployment Restart Failed"),
-    DEPLOYMENT_DELETE_FAILED("DEPLOYMENT_004","Deployment Delete Failed"),;
+    DEPLOYMENT_DELETE_FAILED("DEPLOYMENT_004","Deployment Delete Failed"),
+    DEPLOYMENT_ALREADY_EXISTS("DEPLOYMENT_005", "Deployment Already Exists" ),
+    DEPLOYMENT_CREATION_FAILED("DEPLOYMENT_006", "Deployment Creation Failed" ),;
 
     private final String code;
     private final String message;
