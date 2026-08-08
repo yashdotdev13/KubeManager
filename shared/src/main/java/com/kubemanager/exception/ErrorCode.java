@@ -54,7 +54,12 @@ public enum ErrorCode {
 
     POD_NOT_FOUND("POD_001","Pod Not Found"),
 
-    POD_DELETE_FAILED("POD_002","Pod Delete Failed");
+    POD_DELETE_FAILED("POD_002","Pod Delete Failed"),
+
+    DEPLOYMENT_NOT_FOUND("DEPLOYMENT_001", "Deployment Not Found"),
+    DEPLOYMENT_SCALE_FAILED("DEPLOYMENT_002", "Deployment Scale Failed"),
+    DEPLOYMENT_RESTART_FAILED("DEPLOYMENT_003","Deployment Restart Failed"),
+    DEPLOYMENT_DELETE_FAILED("DEPLOYMENT_004","Deployment Delete Failed"),;
 
     private final String code;
     private final String message;
