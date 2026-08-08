@@ -1,5 +1,6 @@
 package com.kubemanager.cluster_service.controller;
 
+import com.kubemanager.cluster_service.dto.request.CreateDeploymentRequest;
 import com.kubemanager.cluster_service.dto.request.ScaleDeploymentRequest;
 import com.kubemanager.cluster_service.dto.response.DeploymentResponse;
 import com.kubemanager.cluster_service.dto.response.DeploymentSummaryResponse;
@@ -121,6 +122,27 @@ public class DeploymentController {
         return ApiResponse.success(
                 "Deployment deleted successfully.",
                 null
+        );
+    }
+
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<DeploymentResponse> createDeployment(
+
+            @PathVariable UUID clusterId,
+
+            @Valid
+            @RequestBody
+            CreateDeploymentRequest request
+    ) {
+
+        return ApiResponse.success(
+                "Deployment created successfully.",
+                deploymentService.createDeployment(
+                        clusterId,
+                        request
+                )
         );
     }
 }
