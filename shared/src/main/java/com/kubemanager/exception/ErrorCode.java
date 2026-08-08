@@ -50,7 +50,11 @@ public enum ErrorCode {
     NAMESPACE_NOT_FOUND("NAMESPACE_003","Namespace Not Found" ),
     NAMESPACE_DELETE_FAILED("NAMESPACE_004","Namespace Delete Failed"),
 
-    NODE_NOT_FOUND("NODE_001", "Node Not Found");
+    NODE_NOT_FOUND("NODE_001", "Node Not Found"),
+
+    POD_NOT_FOUND("POD_001","Pod Not Found"),
+
+    POD_DELETE_FAILED("POD_002","Pod Delete Failed");
 
     private final String code;
     private final String message;
