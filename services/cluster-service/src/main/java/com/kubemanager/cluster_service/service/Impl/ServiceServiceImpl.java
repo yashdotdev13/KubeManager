@@ -117,17 +117,212 @@ public class ServiceServiceImpl implements ServiceService {
 
     @Override
     public List<ServiceSummaryResponse> getServices(UUID clusterId, String namespace) {
-        return List.of();
+
+
+        log.info("Fetching services for cluster '{}', namesoace '{}'",
+                clusterId, namespace);
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(()-> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found"
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            List<io.fabric8.kubernetes.api.model.Service> services;
+
+            if (namespace == null || namespace.isBlank()) {
+
+                services = client.services()
+                        .list()
+                        .getItems();
+
+            } else {
+
+                services = client.services()
+                        .inNamespace(namespace)
+                        .list()
+                        .getItems();
+            }
+
+            log.info(
+                    "Found {} services.",
+                    services.size()
+            );
+
+            return services.stream()
+                    .map(serviceMapper::toSummaryResponse)
+                    .toList();
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch services.",
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to fetch services."
+            );
+        }
     }
 
     @Override
-    public ServiceResponse getService(UUID clusterId, String namespace, String serviceName) {
-        return null;
+    public ServiceResponse getService(
+            UUID clusterId,
+            String namespace,
+            String serviceName
+    ) {
+
+        log.info(
+                "Fetching service '{}' from namespace '{}'.",
+                serviceName,
+                namespace
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            io.fabric8.kubernetes.api.model.Service service =
+                    client.services()
+                            .inNamespace(namespace)
+                            .withName(serviceName)
+                            .get();
+
+            if (service == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.SERVICE_NOT_FOUND,
+                        "Service not found."
+                );
+            }
+
+            return serviceMapper.toResponse(service);
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch service '{}'.",
+                    serviceName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to fetch service."
+            );
+        }
     }
 
     @Override
-    public void deleteService(UUID clusterId, String namespace, String serviceName) {
+    public void deleteService(
+            UUID clusterId,
+            String namespace,
+            String serviceName
+    ) {
 
+        log.info(
+                "Deleting service '{}' from namespace '{}'.",
+                serviceName,
+                namespace
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            io.fabric8.kubernetes.api.model.Service service =
+                    client.services()
+                            .inNamespace(namespace)
+                            .withName(serviceName)
+                            .get();
+
+            if (service == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.SERVICE_NOT_FOUND,
+                        "Service not found."
+                );
+            }
+
+            client.services()
+                    .inNamespace(namespace)
+                    .withName(serviceName)
+                    .delete();
+
+            log.info(
+                    "Service '{}' deleted successfully.",
+                    serviceName
+            );
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to delete service '{}'.",
+                    serviceName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to delete service."
+            );
+        }
     }
 
 
