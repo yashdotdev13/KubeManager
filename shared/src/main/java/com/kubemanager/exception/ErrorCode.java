@@ -72,7 +72,12 @@ public enum ErrorCode {
     INGRESS_CREATION_FAILED("INGRESS_001","Ingress Creation Failed"),
     INGRESS_ALREADY_EXISTS("INGRESS_002", "Ingress Already Exists" ),
 
-    INGRESS_NOT_FOUND("INGRESS_003","Ingress Not Found");
+    INGRESS_NOT_FOUND("INGRESS_003","Ingress Not Found"),
+
+    CONFIG_MAP_ALREADY_EXISTS("CONFIGMAP_001","ConfigMap Already Exists" ),
+    CONFIG_MAP_CREATION_FAILED("CONFIGMAP_002","ConfigMap Creation Failed" ),
+
+    CONFIG_MAP_NOT_FOUND("CONFIGMAP_003","ConfigMap Not Found" ),;
 
     private final String code;
     private final String message;
