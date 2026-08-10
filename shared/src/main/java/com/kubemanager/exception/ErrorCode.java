@@ -77,7 +77,11 @@ public enum ErrorCode {
     CONFIG_MAP_ALREADY_EXISTS("CONFIGMAP_001","ConfigMap Already Exists" ),
     CONFIG_MAP_CREATION_FAILED("CONFIGMAP_002","ConfigMap Creation Failed" ),
 
-    CONFIG_MAP_NOT_FOUND("CONFIGMAP_003","ConfigMap Not Found" ),;
+    CONFIG_MAP_NOT_FOUND("CONFIGMAP_003","ConfigMap Not Found" ),
+
+    SECRET_ALREADY_EXISTS("SECRET_001","Secret Already Exists"),
+
+    SECRET_CREATION_FAILED("SECRET_003","Secret Creation Failed"),;
 
     private final String code;
     private final String message;
