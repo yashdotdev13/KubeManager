@@ -17,8 +17,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
-
-import com.kubemanager.cluster_service.dto.request.CreateIngressRequest;
 import com.kubemanager.cluster_service.entity.Cluster;
 
 import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
