@@ -81,7 +81,8 @@ public enum ErrorCode {
 
     SECRET_ALREADY_EXISTS("SECRET_001","Secret Already Exists"),
 
-    SECRET_CREATION_FAILED("SECRET_003","Secret Creation Failed"),;
+    SECRET_CREATION_FAILED("SECRET_003","Secret Creation Failed"),
+    SECRET_NOT_FOUND("SECRET_004","Secret Not Found" ),;
 
     private final String code;
     private final String message;

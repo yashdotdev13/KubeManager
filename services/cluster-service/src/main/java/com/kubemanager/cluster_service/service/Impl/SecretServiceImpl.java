@@ -116,7 +116,70 @@ public class SecretServiceImpl implements SecretService {
             UUID clusterId,
             String namespace
     ) {
-        return List.of();
+
+        log.info(
+                "Fetching Secrets for cluster '{}', namespace '{}'.",
+                clusterId,
+                namespace
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            List<io.fabric8.kubernetes.api.model.Secret> secrets;
+
+            if (namespace == null || namespace.isBlank()) {
+
+                secrets = client.secrets()
+                        .list()
+                        .getItems();
+
+            } else {
+
+                secrets = client.secrets()
+                        .inNamespace(namespace)
+                        .list()
+                        .getItems();
+            }
+
+            log.info(
+                    "Found {} Secrets.",
+                    secrets.size()
+            );
+
+            return secrets.stream()
+                    .map(secretMapper::toSummaryResponse)
+                    .toList();
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch Secrets.",
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to fetch Secrets."
+            );
+        }
     }
 
     @Override
@@ -125,7 +188,66 @@ public class SecretServiceImpl implements SecretService {
             String namespace,
             String secretName
     ) {
-        return null;
+
+        log.info(
+                "Fetching Secret '{}' from namespace '{}'.",
+                secretName,
+                namespace
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            io.fabric8.kubernetes.api.model.Secret secret =
+                    client.secrets()
+                            .inNamespace(namespace)
+                            .withName(secretName)
+                            .get();
+
+            if (secret == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.SECRET_NOT_FOUND,
+                        "Secret not found."
+                );
+            }
+
+            return secretMapper.toResponse(secret);
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch Secret '{}'.",
+                    secretName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to fetch Secret."
+            );
+        }
     }
 
     @Override
@@ -135,6 +257,73 @@ public class SecretServiceImpl implements SecretService {
             String secretName
     ) {
 
+        log.info(
+                "Deleting Secret '{}' from namespace '{}'.",
+                secretName,
+                namespace
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            io.fabric8.kubernetes.api.model.Secret secret =
+                    client.secrets()
+                            .inNamespace(namespace)
+                            .withName(secretName)
+                            .get();
+
+            if (secret == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.SECRET_NOT_FOUND,
+                        "Secret not found."
+                );
+            }
+
+            client.secrets()
+                    .inNamespace(namespace)
+                    .withName(secretName)
+                    .delete();
+
+            log.info(
+                    "Secret '{}' deleted successfully.",
+                    secretName
+            );
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to delete Secret '{}'.",
+                    secretName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to delete Secret."
+            );
+        }
     }
 
 
