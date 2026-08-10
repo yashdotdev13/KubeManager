@@ -67,7 +67,10 @@ public enum ErrorCode {
 
     SERVICE_CREATION_FAILED("SERVICE_002","Service Creation Failed"),
 
-    SERVICE_NOT_FOUND("SERVICE_003","Service Not Found" ),;
+    SERVICE_NOT_FOUND("SERVICE_003","Service Not Found" ),
+
+    INGRESS_CREATION_FAILED("INGRESS_001","Ingress Creation Failed"),
+    INGRESS_ALREADY_EXISTS("INGRESS_002", "Ingress Already Exists" ),;
 
     private final String code;
     private final String message;
