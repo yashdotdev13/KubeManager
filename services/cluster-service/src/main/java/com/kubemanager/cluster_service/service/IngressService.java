@@ -13,7 +13,7 @@ public interface IngressService {
 
     List<IngressSummaryResponse> getIngresses(UUID clusterId, String namespace);
 
-    IngressResponse getIngress(UUID clusterId, String namespace);
+    IngressResponse getIngress(UUID clusterId, String namespace, String ingressName);
 
     void deleteIngress(UUID clusterId, String namespace, String ingressName);
 }

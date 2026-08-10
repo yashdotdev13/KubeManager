@@ -120,20 +120,228 @@ public class ingressServiceImpl implements IngressService {
     }
 
     @Override
-    public List<IngressSummaryResponse> getIngresses(UUID clusterId, String namespace) {
-        return List.of();
+    public List<IngressSummaryResponse> getIngresses(
+            UUID clusterId,
+            String namespace
+    ) {
+
+        log.info(
+                "Fetching ingresses for cluster '{}', namespace '{}'.",
+                clusterId,
+                namespace
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            List<io.fabric8.kubernetes.api.model.networking.v1.Ingress> ingresses;
+
+            if (namespace == null || namespace.isBlank()) {
+
+                ingresses = client.network()
+                        .v1()
+                        .ingresses()
+                        .list()
+                        .getItems();
+
+            } else {
+
+                ingresses = client.network()
+                        .v1()
+                        .ingresses()
+                        .inNamespace(namespace)
+                        .list()
+                        .getItems();
+            }
+
+            log.info(
+                    "Found {} ingresses.",
+                    ingresses.size()
+            );
+
+            return ingresses.stream()
+                    .map(ingressMapper::toSummaryResponse)
+                    .toList();
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch ingresses.",
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to fetch ingresses."
+            );
+        }
     }
 
     @Override
-    public IngressResponse getIngress(UUID clusterId, String namespace) {
-        return null;
+    public IngressResponse getIngress(
+            UUID clusterId,
+            String namespace,
+            String ingressName
+    ) {
+
+        log.info(
+                "Fetching ingress '{}' from namespace '{}'.",
+                ingressName,
+                namespace
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            io.fabric8.kubernetes.api.model.networking.v1.Ingress ingress =
+                    client.network()
+                            .v1()
+                            .ingresses()
+                            .inNamespace(namespace)
+                            .withName(ingressName)
+                            .get();
+
+            if (ingress == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.INGRESS_NOT_FOUND,
+                        "Ingress not found."
+                );
+            }
+
+            return ingressMapper.toResponse(ingress);
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch ingress '{}'.",
+                    ingressName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to fetch ingress."
+            );
+        }
     }
 
     @Override
-    public void deleteIngress(UUID clusterId, String namespace, String ingressName) {
+    public void deleteIngress(
+            UUID clusterId,
+            String namespace,
+            String ingressName
+    ) {
 
+        log.info(
+                "Deleting ingress '{}' from namespace '{}'.",
+                ingressName,
+                namespace
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            io.fabric8.kubernetes.api.model.networking.v1.Ingress ingress =
+                    client.network()
+                            .v1()
+                            .ingresses()
+                            .inNamespace(namespace)
+                            .withName(ingressName)
+                            .get();
+
+            if (ingress == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.INGRESS_NOT_FOUND,
+                        "Ingress not found."
+                );
+            }
+
+            client.network()
+                    .v1()
+                    .ingresses()
+                    .inNamespace(namespace)
+                    .withName(ingressName)
+                    .delete();
+
+            log.info(
+                    "Ingress '{}' deleted successfully.",
+                    ingressName
+            );
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to delete ingress '{}'.",
+                    ingressName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to delete ingress."
+            );
+        }
     }
-
 
     private io.fabric8.kubernetes.api.model.networking.v1.Ingress buildIngress(
             CreateIngressRequest request
