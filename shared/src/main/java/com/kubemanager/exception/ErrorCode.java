@@ -85,7 +85,9 @@ public enum ErrorCode {
     SECRET_NOT_FOUND("SECRET_004","Secret Not Found" ),
 
     PVC_ALREADY_EXISTS("PVC_001","PVC Already Exists" ),
-    PVC_CREATION_FAILED("PVC_002","PVC Creation Failed" ),;
+    PVC_CREATION_FAILED("PVC_002","PVC Creation Failed" ),
+    PVC_NOT_FOUND("PVE_003","PVC Not Found" ),
+    PVC_DELETION_FAILED("PVC_004","PVC Delete Failed" ),;
 
     private final String code;
     private final String message;
