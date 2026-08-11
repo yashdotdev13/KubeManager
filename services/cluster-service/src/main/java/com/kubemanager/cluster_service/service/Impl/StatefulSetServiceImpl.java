@@ -206,7 +206,63 @@ public class StatefulSetServiceImpl implements StatefulSetService {
             UUID clusterId,
             String namespace
     ) {
-        return List.of();
+
+        log.info(
+                "Fetching StatefulSets in namespace '{}' for cluster '{}'.",
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            List<StatefulSet> statefulSets =
+                    client.apps()
+                            .statefulSets()
+                            .inNamespace(namespace)
+                            .list()
+                            .getItems();
+
+            log.info(
+                    "Found {} StatefulSet(s) in namespace '{}'.",
+                    statefulSets.size(),
+                    namespace
+            );
+
+            return statefulSets.stream()
+                    .map(statefulSetMapper::toSummaryResponse)
+                    .toList();
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch StatefulSets in namespace '{}'.",
+                    namespace,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.STATEFUL_SET_NOT_FOUND,
+                    "Unable to fetch StatefulSets."
+            );
+        }
     }
 
     @Override
@@ -215,7 +271,75 @@ public class StatefulSetServiceImpl implements StatefulSetService {
             String namespace,
             String statefulSetName
     ) {
-        return null;
+
+        log.info(
+                "Fetching StatefulSet '{}' in namespace '{}' for cluster '{}'.",
+                statefulSetName,
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            StatefulSet statefulSet =
+                    client.apps()
+                            .statefulSets()
+                            .inNamespace(namespace)
+                            .withName(statefulSetName)
+                            .get();
+
+            if (statefulSet == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.STATEFUL_SET_NOT_FOUND,
+                        "StatefulSet not found."
+                );
+            }
+
+            log.info(
+                    "StatefulSet '{}' fetched successfully.",
+                    statefulSetName
+            );
+
+            return statefulSetMapper.toResponse(
+                    statefulSet
+            );
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch StatefulSet '{}'.",
+                    statefulSetName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.STATEFUL_SET_NOT_FOUND,
+                    "Unable to fetch StatefulSet."
+            );
+        }
     }
 
     @Override
@@ -224,5 +348,76 @@ public class StatefulSetServiceImpl implements StatefulSetService {
             String namespace,
             String statefulSetName
     ) {
+
+        log.info(
+                "Deleting StatefulSet '{}' in namespace '{}' for cluster '{}'.",
+                statefulSetName,
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            StatefulSet statefulSet =
+                    client.apps()
+                            .statefulSets()
+                            .inNamespace(namespace)
+                            .withName(statefulSetName)
+                            .get();
+
+            if (statefulSet == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.STATEFUL_SET_NOT_FOUND,
+                        "StatefulSet not found."
+                );
+            }
+
+            client.apps()
+                    .statefulSets()
+                    .inNamespace(namespace)
+                    .withName(statefulSetName)
+                    .delete();
+
+            log.info(
+                    "StatefulSet '{}' deleted successfully.",
+                    statefulSetName
+            );
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to delete StatefulSet '{}'.",
+                    statefulSetName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.STATEFUL_SET_DELETION_FAILED,
+                    "Unable to delete StatefulSet."
+            );
+        }
     }
 }
