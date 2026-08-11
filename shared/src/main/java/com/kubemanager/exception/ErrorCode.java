@@ -97,7 +97,11 @@ public enum ErrorCode {
     STORAGE_CLASS_ALREADY_EXISTS("STORAGE_001","Storage Already Exists" ),
     STORAGE_CLASS_CREATION_FAILED("STORAGE_002","Storage Creation Failed" ),
     STORAGE_CLASS_NOT_FOUND("STORAGE_003","Storage Not Found" ),
-    STORAGE_CLASS_DELETION_FAILED("STORAGE_004","Storage Delete Failed" ),;
+    STORAGE_CLASS_DELETION_FAILED("STORAGE_004","Storage Delete Failed" ),
+    STATEFUL_SET_ALREADY_EXISTS("STATEFUL_SET_001","Stateful Set Already Exists" ),
+    STATEFUL_SET_CREATION_FAILED("STATEFUL_SET_002","Stateful Set Creation Failed" ),
+    STATEFUL_SET_NOT_FOUND("STATEFUL_SET_003","Stateful Set Not Found" ),
+    STATEFUL_SET_DELETION_FAILED("STATEFUL_SET_004","Stateful Set Delete Failed" ),;
 
     private final String code;
     private final String message;
