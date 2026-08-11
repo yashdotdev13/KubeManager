@@ -92,7 +92,12 @@ public enum ErrorCode {
     PV_ALREADY_EXISTS("PV_001","PV Already Exists" ),
     PV_CREATION_FAILED("PV_002","PV Creation Failed" ),
     PV_NOT_FOUND("PV_003","PV Not Found" ),
-    PV_DELETION_FAILED("PV_004","PV Delete Failed" ),;
+    PV_DELETION_FAILED("PV_004","PV Delete Failed" ),
+
+    STORAGE_CLASS_ALREADY_EXISTS("STORAGE_001","Storage Already Exists" ),
+    STORAGE_CLASS_CREATION_FAILED("STORAGE_002","Storage Creation Failed" ),
+    STORAGE_CLASS_NOT_FOUND("STORAGE_003","Storage Not Found" ),
+    STORAGE_CLASS_DELETION_FAILED("STORAGE_004","Storage Delete Failed" ),;
 
     private final String code;
     private final String message;
