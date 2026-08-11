@@ -82,7 +82,10 @@ public enum ErrorCode {
     SECRET_ALREADY_EXISTS("SECRET_001","Secret Already Exists"),
 
     SECRET_CREATION_FAILED("SECRET_003","Secret Creation Failed"),
-    SECRET_NOT_FOUND("SECRET_004","Secret Not Found" ),;
+    SECRET_NOT_FOUND("SECRET_004","Secret Not Found" ),
+
+    PVC_ALREADY_EXISTS("PVC_001","PVC Already Exists" ),
+    PVC_CREATION_FAILED("PVC_002","PVC Creation Failed" ),;
 
     private final String code;
     private final String message;
