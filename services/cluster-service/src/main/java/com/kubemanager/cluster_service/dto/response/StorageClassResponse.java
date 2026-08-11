@@ -1,0 +1,30 @@
+package com.kubemanager.cluster_service.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.OffsetDateTime;
+import java.util.Map;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class StorageClassResponse {
+
+    private String name;
+
+    private String provisioner;
+
+    private String reclaimPolicy;
+
+    private String volumeBindingMode;
+
+    private Boolean allowVolumeExpansion;
+
+    private Map<String, String> parameters;
+
+    private OffsetDateTime creationTimestamp;
+}
