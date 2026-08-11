@@ -87,7 +87,12 @@ public enum ErrorCode {
     PVC_ALREADY_EXISTS("PVC_001","PVC Already Exists" ),
     PVC_CREATION_FAILED("PVC_002","PVC Creation Failed" ),
     PVC_NOT_FOUND("PVE_003","PVC Not Found" ),
-    PVC_DELETION_FAILED("PVC_004","PVC Delete Failed" ),;
+    PVC_DELETION_FAILED("PVC_004","PVC Delete Failed" ),
+
+    PV_ALREADY_EXISTS("PV_001","PV Already Exists" ),
+    PV_CREATION_FAILED("PV_002","PV Creation Failed" ),
+    PV_NOT_FOUND("PV_003","PV Not Found" ),
+    PV_DELETION_FAILED("PV_004","PV Delete Failed" ),;
 
     private final String code;
     private final String message;
