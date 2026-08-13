@@ -106,7 +106,12 @@ public enum ErrorCode {
     JOB_CREATION_FAILED("JOB_001","Job Creation Failed" ),
     JOB_NOT_FOUND("JOB_002","Job Not Found" ),
     JOB_DELETION_FAILED("JOB_003","Job Deletion Failed" ),
-    JOB_ALREADY_EXISTS("JOB_004","Job Already Exists" ),;
+    JOB_ALREADY_EXISTS("JOB_004","Job Already Exists" ),
+
+    CRON_JOB_ALREADY_EXISTS("CRON_JOB_001","Cron Job Already Exists" ),
+    CRON_JOB_CREATION_FAILED("CRON_JOB_002","Cron Job Creation Failed" ),
+    CRON_JOB_NOT_FOUND("CRON_JOB_003","Cron Job Not Found" ),
+    CRON_JOB_DELETION_FAILED("CRON_JOB_004","Cron Job Deletion Failed" ),;
 
     private final String code;
     private final String message;
