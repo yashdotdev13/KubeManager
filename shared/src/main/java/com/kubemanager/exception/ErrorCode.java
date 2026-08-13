@@ -101,7 +101,12 @@ public enum ErrorCode {
     STATEFUL_SET_ALREADY_EXISTS("STATEFUL_SET_001","Stateful Set Already Exists" ),
     STATEFUL_SET_CREATION_FAILED("STATEFUL_SET_002","Stateful Set Creation Failed" ),
     STATEFUL_SET_NOT_FOUND("STATEFUL_SET_003","Stateful Set Not Found" ),
-    STATEFUL_SET_DELETION_FAILED("STATEFUL_SET_004","Stateful Set Delete Failed" ),;
+
+    STATEFUL_SET_DELETION_FAILED("STATEFUL_SET_004","Stateful Set Delete Failed" ),
+    JOB_CREATION_FAILED("JOB_001","Job Creation Failed" ),
+    JOB_NOT_FOUND("JOB_002","Job Not Found" ),
+    JOB_DELETION_FAILED("JOB_003","Job Deletion Failed" ),
+    JOB_ALREADY_EXISTS("JOB_004","Job Already Exists" ),;
 
     private final String code;
     private final String message;

@@ -213,7 +213,64 @@ public class JobServiceImpl implements JobService {
             UUID clusterId,
             String namespace
     ) {
-        return List.of();
+
+        log.info(
+                "Fetching Jobs in namespace '{}' for cluster '{}'.",
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            List<Job> jobs =
+                    client.batch()
+                            .v1()
+                            .jobs()
+                            .inNamespace(namespace)
+                            .list()
+                            .getItems();
+
+            log.info(
+                    "Found {} Job(s) in namespace '{}'.",
+                    jobs.size(),
+                    namespace
+            );
+
+            return jobs.stream()
+                    .map(jobMapper::toSummaryResponse)
+                    .toList();
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch Jobs in namespace '{}'.",
+                    namespace,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.JOB_NOT_FOUND,
+                    "Unable to fetch Jobs."
+            );
+        }
     }
 
     @Override
@@ -222,7 +279,74 @@ public class JobServiceImpl implements JobService {
             String namespace,
             String jobName
     ) {
-        return null;
+
+        log.info(
+                "Fetching Job '{}' in namespace '{}' for cluster '{}'.",
+                jobName,
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            Job job =
+                    client.batch()
+                            .v1()
+                            .jobs()
+                            .inNamespace(namespace)
+                            .withName(jobName)
+                            .get();
+
+            if (job == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.JOB_NOT_FOUND,
+                        "Job not found."
+                );
+            }
+
+            log.info(
+                    "Job '{}' fetched successfully.",
+                    jobName
+            );
+
+            return jobMapper.toResponse(job);
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch Job '{}'.",
+                    jobName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.JOB_NOT_FOUND,
+                    "Unable to fetch Job."
+            );
+        }
     }
 
     @Override
@@ -231,5 +355,78 @@ public class JobServiceImpl implements JobService {
             String namespace,
             String jobName
     ) {
+
+        log.info(
+                "Deleting Job '{}' in namespace '{}' for cluster '{}'.",
+                jobName,
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            Job job =
+                    client.batch()
+                            .v1()
+                            .jobs()
+                            .inNamespace(namespace)
+                            .withName(jobName)
+                            .get();
+
+            if (job == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.JOB_NOT_FOUND,
+                        "Job not found."
+                );
+            }
+
+            client.batch()
+                    .v1()
+                    .jobs()
+                    .inNamespace(namespace)
+                    .withName(jobName)
+                    .delete();
+
+            log.info(
+                    "Job '{}' deleted successfully.",
+                    jobName
+            );
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to delete Job '{}'.",
+                    jobName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.JOB_DELETION_FAILED,
+                    "Unable to delete Job."
+            );
+        }
     }
 }
