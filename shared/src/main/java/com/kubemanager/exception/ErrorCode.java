@@ -111,7 +111,13 @@ public enum ErrorCode {
     CRON_JOB_ALREADY_EXISTS("CRON_JOB_001","Cron Job Already Exists" ),
     CRON_JOB_CREATION_FAILED("CRON_JOB_002","Cron Job Creation Failed" ),
     CRON_JOB_NOT_FOUND("CRON_JOB_003","Cron Job Not Found" ),
-    CRON_JOB_DELETION_FAILED("CRON_JOB_004","Cron Job Deletion Failed" ),;
+    CRON_JOB_DELETION_FAILED("CRON_JOB_004","Cron Job Deletion Failed" ),
+
+    REPLICA_SET_ALREADY_EXISTS("REPLICASET_001","Replica Set Already Exists" ),
+    REPLICA_SET_CREATION_FAILED("REPLICASET_002","Replica Set Creation Failed" ),
+
+    REPLICA_SET_NOT_FOUND("REPLICASET_003","Replica Set Not Found" ),
+    REPLICA_SET_DELETION_FAILED("REPLICASET_004","Replica Set Delete Failed" ),;
 
     private final String code;
     private final String message;
