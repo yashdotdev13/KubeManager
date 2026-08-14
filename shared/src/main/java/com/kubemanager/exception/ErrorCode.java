@@ -114,7 +114,9 @@ public enum ErrorCode {
     CRON_JOB_DELETION_FAILED("CRON_JOB_004","Cron Job Deletion Failed" ),
 
     REPLICA_SET_ALREADY_EXISTS("REPLICASET_001","Replica Set Already Exists" ),
-    REPLICA_SET_CREATION_FAILED("REPLICASET_002","Replica Set Creation Failed" ),;
+    REPLICA_SET_CREATION_FAILED("REPLICASET_002","Replica Set Creation Failed" ),
+
+    REPLICA_SET_NOT_FOUND("REPLICASET_003","Replica Set Not Found" ),;
 
     private final String code;
     private final String message;

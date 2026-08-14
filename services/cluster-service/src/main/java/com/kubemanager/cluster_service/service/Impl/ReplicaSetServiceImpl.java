@@ -120,8 +120,67 @@ public class ReplicaSetServiceImpl implements ReplicaSetService {
     }
 
     @Override
-    public List<ReplicaSetSummaryResponse> getReplicaSets(UUID clusterId, String namespace) {
-        return List.of();
+    public List<ReplicaSetSummaryResponse> getReplicaSets(
+            UUID clusterId,
+            String namespace
+    ) {
+
+        log.info(
+                "Fetching ReplicaSets in namespace '{}' for cluster '{}'.",
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            List<ReplicaSet> replicaSets =
+                    client.apps()
+                            .replicaSets()
+                            .inNamespace(namespace)
+                            .list()
+                            .getItems();
+
+            log.info(
+                    "Found {} ReplicaSet(s) in namespace '{}'.",
+                    replicaSets.size(),
+                    namespace
+            );
+
+            return replicaSets.stream()
+                    .map(replicaSetMapper::toSummaryResponse)
+                    .toList();
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch ReplicaSets in namespace '{}'.",
+                    namespace,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.REPLICA_SET_NOT_FOUND,
+                    "Unable to fetch ReplicaSets."
+            );
+        }
     }
 
     @Override
