@@ -121,7 +121,9 @@ public enum ErrorCode {
 
     POD_LOGS_UNAVAILABLE("POD_LOG_001","Pod Logs Unavailable" ),
 
-    POD_EVENTS_UNAVAILABLE("POD_EVENT_001","Pod Events Unavailable" ),;
+    POD_EVENTS_UNAVAILABLE("POD_EVENT_001","Pod Events Unavailable" ),
+
+    POD_EXECUTION_FAILED("POD_EXECUTION_001","Pod Execution Failed" ),;
 
     private final String code;
     private final String message;
