@@ -184,13 +184,157 @@ public class ReplicaSetServiceImpl implements ReplicaSetService {
     }
 
     @Override
-    public ReplicaSetResponse getReplicaSet(UUID clusterId, String namespace, String replicaSetName) {
-        return null;
+    public ReplicaSetResponse getReplicaSet(
+            UUID clusterId,
+            String namespace,
+            String replicaSetName
+    ) {
+
+        log.info(
+                "Fetching ReplicaSet '{}' in namespace '{}' for cluster '{}'.",
+                replicaSetName,
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            ReplicaSet replicaSet =
+                    client.apps()
+                            .replicaSets()
+                            .inNamespace(namespace)
+                            .withName(replicaSetName)
+                            .get();
+
+            if (replicaSet == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.REPLICA_SET_NOT_FOUND,
+                        "ReplicaSet not found."
+                );
+            }
+
+            log.info(
+                    "ReplicaSet '{}' fetched successfully.",
+                    replicaSetName
+            );
+
+            return replicaSetMapper.toResponse(replicaSet);
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch ReplicaSet '{}'.",
+                    replicaSetName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.REPLICA_SET_NOT_FOUND,
+                    "Unable to fetch ReplicaSet."
+            );
+        }
     }
 
     @Override
-    public void deleteReplicaSet(UUID clusterId, String namespace, String replicaSetName) {
+    public void deleteReplicaSet(
+            UUID clusterId,
+            String namespace,
+            String replicaSetName
+    ) {
 
+        log.info(
+                "Deleting ReplicaSet '{}' in namespace '{}' for cluster '{}'.",
+                replicaSetName,
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            ReplicaSet replicaSet =
+                    client.apps()
+                            .replicaSets()
+                            .inNamespace(namespace)
+                            .withName(replicaSetName)
+                            .get();
+
+            if (replicaSet == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.REPLICA_SET_NOT_FOUND,
+                        "ReplicaSet not found."
+                );
+            }
+
+            client.apps()
+                    .replicaSets()
+                    .inNamespace(namespace)
+                    .withName(replicaSetName)
+                    .delete();
+
+            log.info(
+                    "ReplicaSet '{}' deleted successfully.",
+                    replicaSetName
+            );
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to delete ReplicaSet '{}'.",
+                    replicaSetName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.REPLICA_SET_DELETION_FAILED,
+                    "Unable to delete ReplicaSet."
+            );
+        }
     }
 
 
