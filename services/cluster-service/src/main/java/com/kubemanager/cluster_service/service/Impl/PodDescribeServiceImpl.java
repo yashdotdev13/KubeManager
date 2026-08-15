@@ -43,7 +43,6 @@ public class PodDescribeServiceImpl implements PodDescribeService {
                 namespace,
                 clusterId
         );
-
         Cluster cluster = clusterRepository.findById(clusterId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCode.CLUSTER_NOT_FOUND,
@@ -70,15 +69,12 @@ public class PodDescribeServiceImpl implements PodDescribeService {
                     .get();
 
             if (pod == null) {
-
                 throw new ResourceNotFoundException(
                         ErrorCode.POD_NOT_FOUND,
                         "Pod not found."
                 );
             }
-
             if (pod.getMetadata() == null) {
-
                 throw new BadRequestException(
                         ErrorCode.POD_DESCRIBE_FAILED,
                         "Pod metadata is not available."
@@ -86,9 +82,7 @@ public class PodDescribeServiceImpl implements PodDescribeService {
             }
 
             String name = pod.getMetadata().getName();
-
             String podNamespace = pod.getMetadata().getNamespace();
-
             String uid = pod.getMetadata().getUid();
 
             String startTime = null;
@@ -112,11 +106,8 @@ public class PodDescribeServiceImpl implements PodDescribeService {
                         : null;
 
                 podIp = pod.getStatus().getPodIP();
-
                 hostIp = pod.getStatus().getHostIP();
-
                 phase = pod.getStatus().getPhase();
-
                 startTime = pod.getStatus().getStartTime();
 
                 if (pod.getStatus().getContainerStatuses() != null) {
@@ -139,7 +130,6 @@ public class PodDescribeServiceImpl implements PodDescribeService {
             }
 
             if (pod.getSpec() != null) {
-
                 serviceAccount =
                         pod.getSpec().getServiceAccountName();
             }
@@ -163,11 +153,9 @@ public class PodDescribeServiceImpl implements PodDescribeService {
                     .build();
 
         } catch (ResourceNotFoundException exception) {
-
             throw exception;
 
         } catch (BadRequestException exception) {
-
             throw exception;
 
         } catch (Exception exception) {
@@ -190,7 +178,6 @@ public class PodDescribeServiceImpl implements PodDescribeService {
     ) {
 
         String state = null;
-
         String reason = null;
 
         ContainerState containerState =
@@ -199,9 +186,7 @@ public class PodDescribeServiceImpl implements PodDescribeService {
         if (containerState != null) {
 
             if (containerState.getRunning() != null) {
-
                 state = "RUNNING";
-
                 reason = containerState
                         .getRunning()
                         .getStartedAt();
@@ -209,7 +194,6 @@ public class PodDescribeServiceImpl implements PodDescribeService {
             } else if (containerState.getWaiting() != null) {
 
                 state = "WAITING";
-
                 reason = containerState
                         .getWaiting()
                         .getReason();
@@ -217,7 +201,6 @@ public class PodDescribeServiceImpl implements PodDescribeService {
             } else if (containerState.getTerminated() != null) {
 
                 state = "TERMINATED";
-
                 reason = containerState
                         .getTerminated()
                         .getReason();
