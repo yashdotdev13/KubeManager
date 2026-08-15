@@ -1,5 +1,7 @@
 package com.kubemanager.cluster_service.service;
 
+import com.kubemanager.cluster_service.dto.request.NodeDrainRequest;
+import com.kubemanager.cluster_service.dto.response.NodeDrainResponse;
 import com.kubemanager.cluster_service.dto.response.NodeOperationResponse;
 import com.kubemanager.cluster_service.dto.response.NodeResponse;
 import com.kubemanager.cluster_service.dto.response.NodeSummaryResponse;
@@ -18,5 +20,11 @@ public interface NodeService {
     NodeOperationResponse uncordonNode(
             UUID clusterId,
             String nodeName
+    );
+
+    NodeDrainResponse drainNode(
+            UUID clusterId,
+            String nodeName,
+            NodeDrainRequest request
     );
 }

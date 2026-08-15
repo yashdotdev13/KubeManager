@@ -128,7 +128,8 @@ public enum ErrorCode {
     POD_RESTART_FAILED("POD_EXECUTION_002","Pod Restart Failed" ),
     POD_DESCRIBE_FAILED("POD_DESCRIBE_001","Pod Describe Failed" ),
 
-    NODE_OPERATION_FAILED("NDDE_002","Node Operation Failed" ),;
+    NODE_OPERATION_FAILED("NDDE_002","Node Operation Failed" ),
+    NODE_DRAIN_FAILED("NODE_DRAIN_001", "Node DRAin Failed" ),;
 
     private final String code;
     private final String message;
