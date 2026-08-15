@@ -126,7 +126,9 @@ public enum ErrorCode {
     POD_EXECUTION_FAILED("POD_EXECUTION_001","Pod Execution Failed" ),
 
     POD_RESTART_FAILED("POD_EXECUTION_002","Pod Restart Failed" ),
-    POD_DESCRIBE_FAILED("POD_DESCRIBE_001","Pod Describe Failed" ),;
+    POD_DESCRIBE_FAILED("POD_DESCRIBE_001","Pod Describe Failed" ),
+
+    NODE_OPERATION_FAILED("NDDE_002","Node Operation Failed" ),;
 
     private final String code;
     private final String message;

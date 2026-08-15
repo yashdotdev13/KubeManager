@@ -1,5 +1,6 @@
 package com.kubemanager.cluster_service.service;
 
+import com.kubemanager.cluster_service.dto.response.NodeOperationResponse;
 import com.kubemanager.cluster_service.dto.response.NodeResponse;
 import com.kubemanager.cluster_service.dto.response.NodeSummaryResponse;
 
@@ -11,4 +12,6 @@ public interface NodeService {
     List<NodeSummaryResponse> getNodes(UUID clusterId);
 
     NodeResponse getNode(UUID clusterId, String nodeName);
+
+    NodeOperationResponse cordonNode(UUID clusterId, String nodeName);
 }
