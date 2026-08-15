@@ -117,7 +117,16 @@ public enum ErrorCode {
     REPLICA_SET_CREATION_FAILED("REPLICASET_002","Replica Set Creation Failed" ),
 
     REPLICA_SET_NOT_FOUND("REPLICASET_003","Replica Set Not Found" ),
-    REPLICA_SET_DELETION_FAILED("REPLICASET_004","Replica Set Delete Failed" ),;
+    REPLICA_SET_DELETION_FAILED("REPLICASET_004","Replica Set Delete Failed" ),
+
+    POD_LOGS_UNAVAILABLE("POD_LOG_001","Pod Logs Unavailable" ),
+
+    POD_EVENTS_UNAVAILABLE("POD_EVENT_001","Pod Events Unavailable" ),
+
+    POD_EXECUTION_FAILED("POD_EXECUTION_001","Pod Execution Failed" ),
+
+    POD_RESTART_FAILED("POD_EXECUTION_002","Pod Restart Failed" ),
+    POD_DESCRIBE_FAILED("POD_DESCRIBE_001","Pod Describe Failed" ),;
 
     private final String code;
     private final String message;
