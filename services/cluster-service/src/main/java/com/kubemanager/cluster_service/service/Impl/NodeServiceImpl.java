@@ -261,4 +261,105 @@ public class NodeServiceImpl implements NodeService {
             );
         }
     }
+
+    @Override
+    public NodeOperationResponse uncordonNode(
+            UUID clusterId,
+            String nodeName
+    ) {
+
+        log.info(
+                "Uncordoning node '{}' for cluster '{}'.",
+                nodeName,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            io.fabric8.kubernetes.api.model.Node node =
+                    client.nodes()
+                            .withName(nodeName)
+                            .get();
+
+            if (node == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.NODE_NOT_FOUND,
+                        "Node not found."
+                );
+            }
+            if (node.getSpec() == null ||
+                    !Boolean.TRUE.equals(
+                            node.getSpec().getUnschedulable()
+                    )) {
+
+                log.info(
+                        "Node '{}' is already schedulable.",
+                        nodeName
+                );
+                return NodeOperationResponse.builder()
+                        .nodeName(nodeName)
+                        .status("ALREADY_UNCORDONED")
+                        .message(
+                                "Node is already schedulable."
+                        )
+                        .build();
+            }
+
+            node.getSpec().setUnschedulable(false);
+
+            client.nodes()
+                    .withName(nodeName)
+                    .patch(node);
+
+            log.info(
+                    "Node '{}' uncordoned successfully.",
+                    nodeName
+            );
+
+            return NodeOperationResponse.builder()
+                    .nodeName(nodeName)
+                    .status("UNCORDONED")
+                    .message(
+                            "Node uncordoned successfully. "
+                                    + "New Pods can now be scheduled on this node."
+                    )
+                    .build();
+
+        } catch (ResourceNotFoundException exception) {
+            throw exception;
+
+        } catch (BadRequestException exception) {
+            throw exception;
+
+        } catch (Exception exception) {
+            log.error(
+                    "Failed to uncordon node '{}'.",
+                    nodeName,
+                    exception
+            );
+            throw new BadRequestException(
+                    ErrorCode.NODE_OPERATION_FAILED,
+                    "Unable to uncordon node."
+            );
+        }
+    }
 }

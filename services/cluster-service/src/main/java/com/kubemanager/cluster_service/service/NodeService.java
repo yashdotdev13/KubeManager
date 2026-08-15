@@ -14,4 +14,9 @@ public interface NodeService {
     NodeResponse getNode(UUID clusterId, String nodeName);
 
     NodeOperationResponse cordonNode(UUID clusterId, String nodeName);
+
+    NodeOperationResponse uncordonNode(
+            UUID clusterId,
+            String nodeName
+    );
 }

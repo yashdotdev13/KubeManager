@@ -1,5 +1,6 @@
 package com.kubemanager.cluster_service.controller;
 
+import com.kubemanager.cluster_service.dto.response.NodeOperationResponse;
 import com.kubemanager.cluster_service.dto.response.NodeResponse;
 import com.kubemanager.cluster_service.dto.response.NodeSummaryResponse;
 import com.kubemanager.cluster_service.service.NodeService;
@@ -40,6 +41,38 @@ public class NodeController {
         return ApiResponse.success(
                 "Node fetched successfully.",
                 nodeService.getNode(
+                        clusterId,
+                        nodeName
+                )
+        );
+    }
+
+    @PostMapping("/{nodeName}/cordon")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<NodeOperationResponse> cordonNode(
+            @PathVariable UUID clusterId,
+            @PathVariable String nodeName
+    ) {
+
+        return ApiResponse.success(
+                "Node cordoned successfully.",
+                nodeService.cordonNode(
+                        clusterId,
+                        nodeName
+                )
+        );
+    }
+
+    @PostMapping("/{nodeName}/uncordon")
+    @ResponseStatus(HttpStatus.OK)
+    public ApiResponse<NodeOperationResponse> uncordonNode(
+            @PathVariable UUID clusterId,
+            @PathVariable String nodeName
+    ) {
+
+        return ApiResponse.success(
+                "Node uncordoned successfully.",
+                nodeService.uncordonNode(
                         clusterId,
                         nodeName
                 )
