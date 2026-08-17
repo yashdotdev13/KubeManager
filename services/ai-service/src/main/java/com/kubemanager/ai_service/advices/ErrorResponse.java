@@ -1,4 +1,4 @@
-package com.kubemanager.ai_service.asvices;
+package com.kubemanager.ai_service.advices;
 
 import com.kubemanager.ai_service.exceptions.AiErrorCode;
 import java.time.LocalDateTime;
