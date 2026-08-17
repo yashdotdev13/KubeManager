@@ -1,7 +1,8 @@
 package com.kubemanager.ai_service.exceptions;
 
-public class AiRequestException extends RuntimeException {
+public class AiRequestException extends AiServiceException {
+
     public AiRequestException(String message) {
-        super(message);
+        super(AiErrorCode.INVALID_REQUEST, message);
     }
 }
