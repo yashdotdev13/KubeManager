@@ -1,8 +1,11 @@
 package com.kubemanager.ai_service.service.Impl;
 
+import com.kubemanager.ai_service.auth.UserContext;
+import com.kubemanager.ai_service.auth.UserContextHolder;
 
 import com.kubemanager.ai_service.dto.AiChatRequest;
 import com.kubemanager.ai_service.dto.AiChatResponse;
+import com.kubemanager.ai_service.exceptions.AiContextException;
 import com.kubemanager.ai_service.exceptions.AiModelException;
 import com.kubemanager.ai_service.service.AiService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +21,17 @@ public class AiServiceImpl implements AiService {
     @Override
     public AiChatResponse chat(AiChatRequest request) {
 
+        UserContext userContext;
+
+        try {
+            userContext = UserContextHolder.getRequiredContext();
+        } catch (IllegalStateException exception) {
+            throw new AiContextException(
+                    "Authenticated user context is not available",
+                    exception
+            );
+        }
+
         try {
 
             String response = chatClient
@@ -26,7 +40,10 @@ public class AiServiceImpl implements AiService {
                     .call()
                     .content();
 
-            return new AiChatResponse(response);
+            return new AiChatResponse(
+                    userContext.getUserId(),
+                    response
+            );
 
         } catch (Exception exception) {
 

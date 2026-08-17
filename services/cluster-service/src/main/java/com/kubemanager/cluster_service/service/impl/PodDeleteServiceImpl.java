@@ -1,14 +1,13 @@
-package com.kubemanager.cluster_service.service.Impl;
+package com.kubemanager.cluster_service.service.impl;
 
-import com.kubemanager.cluster_service.dto.response.PodRestartResponse;
+import com.kubemanager.cluster_service.dto.response.PodDeleteResponse;
 import com.kubemanager.cluster_service.entity.Cluster;
 import com.kubemanager.cluster_service.kubernates.client.KubernetesClientFactory;
 import com.kubemanager.cluster_service.repository.ClusterRepository;
-import com.kubemanager.cluster_service.service.PodRestartService;
+import com.kubemanager.cluster_service.service.PodDeleteService;
 import com.kubemanager.exception.BadRequestException;
 import com.kubemanager.exception.ErrorCode;
 import com.kubemanager.exception.ResourceNotFoundException;
-import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.StatusDetails;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -22,31 +21,29 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class PodRestartServiceImpl implements PodRestartService {
+public class PodDeleteServiceImpl implements PodDeleteService {
 
     private final ClusterRepository clusterRepository;
     private final KubernetesClientFactory kubernetesClientFactory;
 
     @Override
-    public PodRestartResponse restartPod(
+    public PodDeleteResponse deletePod(
             UUID clusterId,
             String namespace,
             String podName
     ) {
 
         log.info(
-                "Restarting pod '{}' in namespace '{}' for cluster '{}'.",
+                "Deleting pod '{}' in namespace '{}' for cluster '{}'.",
                 podName,
                 namespace,
                 clusterId
         );
-
         Cluster cluster = clusterRepository.findById(clusterId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         ErrorCode.CLUSTER_NOT_FOUND,
                         "Cluster not found."
                 ));
-
 
         if (cluster.getEncryptedKubeConfig() == null ||
                 cluster.getEncryptedKubeConfig().isBlank()) {
@@ -75,47 +72,6 @@ public class PodRestartServiceImpl implements PodRestartService {
                 );
             }
 
-            if (pod.getMetadata() == null) {
-
-                throw new BadRequestException(
-                        ErrorCode.POD_RESTART_FAILED,
-                        "Pod metadata is not available."
-                );
-            }
-
-            List<OwnerReference> owners =
-                    pod.getMetadata().getOwnerReferences();
-
-            if (owners == null || owners.isEmpty()) {
-
-                throw new BadRequestException(
-                        ErrorCode.POD_RESTART_FAILED,
-                        "Pod is not managed by a controller and cannot be safely restarted."
-                );
-            }
-
-            OwnerReference controllerOwner = owners.stream()
-                    .filter(owner ->
-                            Boolean.TRUE.equals(owner.getController())
-                    )
-                    .findFirst()
-                    .orElse(null);
-
-            if (controllerOwner == null) {
-
-                throw new BadRequestException(
-                        ErrorCode.POD_RESTART_FAILED,
-                        "Pod does not have a controller owner."
-                );
-            }
-
-            log.info(
-                    "Pod '{}' is managed by {} '{}'.",
-                    podName,
-                    controllerOwner.getKind(),
-                    controllerOwner.getName()
-            );
-
             List<StatusDetails> deleteResult = client.pods()
                     .inNamespace(namespace)
                     .withName(podName)
@@ -124,27 +80,25 @@ public class PodRestartServiceImpl implements PodRestartService {
             if (deleteResult == null || deleteResult.isEmpty()) {
 
                 throw new BadRequestException(
-                        ErrorCode.POD_RESTART_FAILED,
-                        "Failed to delete pod for restart."
+                        ErrorCode.POD_DELETE_FAILED,
+                        "Failed to delete pod."
                 );
             }
 
             log.info(
-                    "Pod '{}' deleted successfully. Waiting for controller '{}' to recreate it.",
+                    "Pod '{}' deleted successfully from namespace '{}'.",
                     podName,
-                    controllerOwner.getName()
+                    namespace
             );
 
-            return PodRestartResponse.builder()
+            return PodDeleteResponse.builder()
                     .podName(podName)
                     .namespace(namespace)
-                    .status("RESTARTING")
+                    .status("DELETED")
                     .message(
-                            "Pod restart initiated. Kubernetes controller "
-                                    + controllerOwner.getKind()
-                                    + " '"
-                                    + controllerOwner.getName()
-                                    + "' will create a replacement pod."
+                            "Pod '" +
+                                    podName +
+                                    "' deleted successfully."
                     )
                     .build();
 
@@ -156,14 +110,14 @@ public class PodRestartServiceImpl implements PodRestartService {
 
         } catch (Exception exception) {
             log.error(
-                    "Failed to restart pod '{}'.",
+                    "Failed to delete pod '{}'.",
                     podName,
                     exception
             );
 
             throw new BadRequestException(
-                    ErrorCode.POD_RESTART_FAILED,
-                    "Unable to restart pod."
+                    ErrorCode.POD_DELETE_FAILED,
+                    "Unable to delete pod."
             );
         }
     }

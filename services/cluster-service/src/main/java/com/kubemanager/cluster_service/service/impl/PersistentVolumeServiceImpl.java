@@ -1,19 +1,19 @@
-package com.kubemanager.cluster_service.service.Impl;
+package com.kubemanager.cluster_service.service.impl;
 
-
-import com.kubemanager.cluster_service.dto.request.CreateStorageClassRequest;
-import com.kubemanager.cluster_service.dto.response.StorageClassResponse;
-import com.kubemanager.cluster_service.dto.response.StorageClassSummaryResponse;
+import com.kubemanager.cluster_service.dto.request.CreatePersistentVolumeRequest;
+import com.kubemanager.cluster_service.dto.response.PersistentVolumeResponse;
+import com.kubemanager.cluster_service.dto.response.PersistentVolumeSummaryResponse;
 import com.kubemanager.cluster_service.entity.Cluster;
 import com.kubemanager.cluster_service.kubernates.client.KubernetesClientFactory;
-import com.kubemanager.cluster_service.mapper.StorageClassMapper;
+import com.kubemanager.cluster_service.mapper.PersistentVolumeMapper;
 import com.kubemanager.cluster_service.repository.ClusterRepository;
-import com.kubemanager.cluster_service.service.StorageClassService;
+import com.kubemanager.cluster_service.service.PersistentVolumeService;
 import com.kubemanager.exception.BadRequestException;
 import com.kubemanager.exception.ErrorCode;
 import com.kubemanager.exception.ResourceNotFoundException;
-import io.fabric8.kubernetes.api.model.storage.StorageClass;
-import io.fabric8.kubernetes.api.model.storage.StorageClassBuilder;
+import io.fabric8.kubernetes.api.model.PersistentVolume;
+import io.fabric8.kubernetes.api.model.PersistentVolumeBuilder;
+import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,23 +22,25 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.UUID;
 
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class StorageClassServiceImpl implements StorageClassService {
+public class PersistentVolumeServiceImpl
+        implements PersistentVolumeService {
 
     private final ClusterRepository clusterRepository;
     private final KubernetesClientFactory kubernetesClientFactory;
-    private final StorageClassMapper storageClassMapper;
+    private final PersistentVolumeMapper persistentVolumeMapper;
 
     @Override
-    public StorageClassResponse createStorageClass(
+    public PersistentVolumeResponse createPersistentVolume(
             UUID clusterId,
-            CreateStorageClassRequest request
+            CreatePersistentVolumeRequest request
     ) {
 
         log.info(
-                "Creating StorageClass '{}' for cluster '{}'.",
+                "Creating PersistentVolume '{}' for cluster '{}'.",
                 request.getName(),
                 clusterId
         );
@@ -63,38 +65,34 @@ public class StorageClassServiceImpl implements StorageClassService {
                              cluster.getEncryptedKubeConfig()
                      )) {
 
-            StorageClass existingStorageClass =
-                    client.storage()
-                            .v1()
-                            .storageClasses()
+            PersistentVolume existingVolume =
+                    client.persistentVolumes()
                             .withName(request.getName())
                             .get();
 
-            if (existingStorageClass != null) {
+            if (existingVolume != null) {
 
                 throw new BadRequestException(
-                        ErrorCode.STORAGE_CLASS_ALREADY_EXISTS,
-                        "StorageClass already exists."
+                        ErrorCode.PV_ALREADY_EXISTS,
+                        "PersistentVolume already exists."
                 );
             }
 
-            StorageClass storageClass =
-                    buildStorageClass(request);
+            PersistentVolume persistentVolume =
+                    buildPersistentVolume(request);
 
-            StorageClass createdStorageClass =
-                    client.storage()
-                            .v1()
-                            .storageClasses()
-                            .resource(storageClass)
+            PersistentVolume createdVolume =
+                    client.persistentVolumes()
+                            .resource(persistentVolume)
                             .create();
 
             log.info(
-                    "StorageClass '{}' created successfully.",
+                    "PersistentVolume '{}' created successfully.",
                     request.getName()
             );
 
-            return storageClassMapper.toResponse(
-                    createdStorageClass
+            return persistentVolumeMapper.toResponse(
+                    createdVolume
             );
 
         } catch (BadRequestException exception) {
@@ -104,69 +102,67 @@ public class StorageClassServiceImpl implements StorageClassService {
         } catch (Exception exception) {
 
             log.error(
-                    "Failed to create StorageClass '{}'.",
+                    "Failed to create PersistentVolume '{}'.",
                     request.getName(),
                     exception
             );
 
             throw new BadRequestException(
-                    ErrorCode.STORAGE_CLASS_CREATION_FAILED,
-                    "Unable to create StorageClass."
+                    ErrorCode.PV_CREATION_FAILED,
+                    "Unable to create PersistentVolume."
             );
         }
     }
 
-    private StorageClass buildStorageClass(
-            CreateStorageClassRequest request
+    private PersistentVolume buildPersistentVolume(
+            CreatePersistentVolumeRequest request
     ) {
 
-        StorageClassBuilder builder =
-                new StorageClassBuilder()
+        return new PersistentVolumeBuilder()
 
-                        .withNewMetadata()
-                        .withName(request.getName())
-                        .endMetadata()
+                .withNewMetadata()
+                .withName(request.getName())
+                .endMetadata()
 
-                        .withProvisioner(
-                                request.getProvisioner()
+                .withNewSpec()
+
+                .withCapacity(
+                        java.util.Map.of(
+                                "storage",
+                                new Quantity(
+                                        request.getStorageSize() + "Gi"
+                                )
                         )
+                )
 
-                        .withReclaimPolicy(
-                                request.getReclaimPolicy() != null
-                                        ? request.getReclaimPolicy()
-                                        : "Delete"
-                        )
+                .withAccessModes(
+                        "ReadWriteOnce"
+                )
 
-                        .withVolumeBindingMode(
-                                request.getVolumeBindingMode() != null
-                                        ? request.getVolumeBindingMode()
-                                        : "Immediate"
-                        )
+                .withPersistentVolumeReclaimPolicy(
+                        "Retain"
+                )
 
-                        .withAllowVolumeExpansion(
-                                request.getAllowVolumeExpansion() != null
-                                        ? request.getAllowVolumeExpansion()
-                                        : false
-                        );
+                .withStorageClassName(
+                        request.getStorageClassName()
+                )
 
-        if (request.getParameters() != null &&
-                !request.getParameters().isEmpty()) {
+                .withNewHostPath()
+                .withPath(request.getHostPath())
+                .endHostPath()
 
-            builder.withParameters(
-                    request.getParameters()
-            );
-        }
+                .endSpec()
 
-        return builder.build();
+                .build();
     }
 
     @Override
-    public List<StorageClassSummaryResponse> getStorageClasses(
+    public List<PersistentVolumeSummaryResponse> getPersistentVolumes(
             UUID clusterId
     ) {
 
         log.info(
-                "Fetching StorageClasses for cluster '{}'.",
+                "Fetching PersistentVolumes for cluster '{}'.",
                 clusterId
         );
 
@@ -190,47 +186,45 @@ public class StorageClassServiceImpl implements StorageClassService {
                              cluster.getEncryptedKubeConfig()
                      )) {
 
-            List<StorageClass> storageClasses =
-                    client.storage()
-                            .v1()
-                            .storageClasses()
+            List<PersistentVolume> volumes =
+                    client.persistentVolumes()
                             .list()
                             .getItems();
 
             log.info(
-                    "Found {} StorageClass(es) for cluster '{}'.",
-                    storageClasses.size(),
+                    "Found {} PersistentVolume(s) for cluster '{}'.",
+                    volumes.size(),
                     clusterId
             );
 
-            return storageClasses.stream()
-                    .map(storageClassMapper::toSummaryResponse)
+            return volumes.stream()
+                    .map(persistentVolumeMapper::toSummaryResponse)
                     .toList();
 
         } catch (Exception exception) {
 
             log.error(
-                    "Failed to fetch StorageClasses for cluster '{}'.",
+                    "Failed to fetch PersistentVolumes for cluster '{}'.",
                     clusterId,
                     exception
             );
 
             throw new BadRequestException(
-                    ErrorCode.STORAGE_CLASS_NOT_FOUND,
-                    "Unable to fetch StorageClasses."
+                    ErrorCode.PV_NOT_FOUND,
+                    "Unable to fetch PersistentVolumes."
             );
         }
     }
 
     @Override
-    public StorageClassResponse getStorageClass(
+    public PersistentVolumeResponse getPersistentVolume(
             UUID clusterId,
-            String storageClassName
+            String volumeName
     ) {
 
         log.info(
-                "Fetching StorageClass '{}' for cluster '{}'.",
-                storageClassName,
+                "Fetching PersistentVolume '{}' for cluster '{}'.",
+                volumeName,
                 clusterId
         );
 
@@ -254,27 +248,27 @@ public class StorageClassServiceImpl implements StorageClassService {
                              cluster.getEncryptedKubeConfig()
                      )) {
 
-            StorageClass storageClass =
-                    client.storage()
-                            .v1()
-                            .storageClasses()
-                            .withName(storageClassName)
+            PersistentVolume persistentVolume =
+                    client.persistentVolumes()
+                            .withName(volumeName)
                             .get();
 
-            if (storageClass == null) {
+            if (persistentVolume == null) {
 
                 throw new ResourceNotFoundException(
-                        ErrorCode.STORAGE_CLASS_NOT_FOUND,
-                        "StorageClass not found."
+                        ErrorCode.PV_NOT_FOUND,
+                        "PersistentVolume not found."
                 );
             }
 
             log.info(
-                    "StorageClass '{}' fetched successfully.",
-                    storageClassName
+                    "PersistentVolume '{}' fetched successfully.",
+                    volumeName
             );
 
-            return storageClassMapper.toResponse(storageClass);
+            return persistentVolumeMapper.toResponse(
+                    persistentVolume
+            );
 
         } catch (ResourceNotFoundException exception) {
 
@@ -283,27 +277,27 @@ public class StorageClassServiceImpl implements StorageClassService {
         } catch (Exception exception) {
 
             log.error(
-                    "Failed to fetch StorageClass '{}'.",
-                    storageClassName,
+                    "Failed to fetch PersistentVolume '{}'.",
+                    volumeName,
                     exception
             );
 
             throw new BadRequestException(
-                    ErrorCode.STORAGE_CLASS_NOT_FOUND,
-                    "Unable to fetch StorageClass."
+                    ErrorCode.PV_NOT_FOUND,
+                    "Unable to fetch PersistentVolume."
             );
         }
     }
 
     @Override
-    public void deleteStorageClass(
+    public void deletePersistentVolume(
             UUID clusterId,
-            String storageClassName
+            String volumeName
     ) {
 
         log.info(
-                "Deleting StorageClass '{}' for cluster '{}'.",
-                storageClassName,
+                "Deleting PersistentVolume '{}' for cluster '{}'.",
+                volumeName,
                 clusterId
         );
 
@@ -327,47 +321,38 @@ public class StorageClassServiceImpl implements StorageClassService {
                              cluster.getEncryptedKubeConfig()
                      )) {
 
-            StorageClass storageClass =
-                    client.storage()
-                            .v1()
-                            .storageClasses()
-                            .withName(storageClassName)
+            PersistentVolume persistentVolume =
+                    client.persistentVolumes()
+                            .withName(volumeName)
                             .get();
 
-            if (storageClass == null) {
-
+            if (persistentVolume == null) {
                 throw new ResourceNotFoundException(
-                        ErrorCode.STORAGE_CLASS_NOT_FOUND,
-                        "StorageClass not found."
+                        ErrorCode.PV_NOT_FOUND,
+                        "PersistentVolume not found."
                 );
             }
-
-            client.storage()
-                    .v1()
-                    .storageClasses()
-                    .withName(storageClassName)
+            client.persistentVolumes()
+                    .withName(volumeName)
                     .delete();
 
             log.info(
-                    "StorageClass '{}' deleted successfully.",
-                    storageClassName
+                    "PersistentVolume '{}' deleted successfully.",
+                    volumeName
             );
 
         } catch (ResourceNotFoundException exception) {
-
             throw exception;
-
         } catch (Exception exception) {
 
             log.error(
-                    "Failed to delete StorageClass '{}'.",
-                    storageClassName,
+                    "Failed to delete PersistentVolume '{}'.",
+                    volumeName,
                     exception
             );
-
             throw new BadRequestException(
-                    ErrorCode.STORAGE_CLASS_DELETION_FAILED,
-                    "Unable to delete StorageClass."
+                    ErrorCode.PV_DELETION_FAILED,
+                    "Unable to delete PersistentVolume."
             );
         }
     }

@@ -1,19 +1,17 @@
-package com.kubemanager.cluster_service.service.Impl;
+package com.kubemanager.cluster_service.service.impl;
 
-import com.kubemanager.cluster_service.dto.request.CreatePersistentVolumeRequest;
-import com.kubemanager.cluster_service.dto.response.PersistentVolumeResponse;
-import com.kubemanager.cluster_service.dto.response.PersistentVolumeSummaryResponse;
+import com.kubemanager.cluster_service.dto.request.CreatePersistentVolumeClaimRequest;
+import com.kubemanager.cluster_service.dto.response.PersistentVolumeClaimResponse;
+import com.kubemanager.cluster_service.dto.response.PersistentVolumeClaimSummaryResponse;
 import com.kubemanager.cluster_service.entity.Cluster;
 import com.kubemanager.cluster_service.kubernates.client.KubernetesClientFactory;
-import com.kubemanager.cluster_service.mapper.PersistentVolumeMapper;
+import com.kubemanager.cluster_service.mapper.PersistentVolumeClaimMapper;
 import com.kubemanager.cluster_service.repository.ClusterRepository;
-import com.kubemanager.cluster_service.service.PersistentVolumeService;
+import com.kubemanager.cluster_service.service.PersistentVolumeClaimService;
 import com.kubemanager.exception.BadRequestException;
 import com.kubemanager.exception.ErrorCode;
 import com.kubemanager.exception.ResourceNotFoundException;
-import io.fabric8.kubernetes.api.model.PersistentVolume;
-import io.fabric8.kubernetes.api.model.PersistentVolumeBuilder;
-import io.fabric8.kubernetes.api.model.Quantity;
+import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,28 +20,25 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.UUID;
 
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class PersistentVolumeServiceImpl
-        implements PersistentVolumeService {
+public class PersistentVolumeClaimServiceImpl
+        implements PersistentVolumeClaimService {
 
     private final ClusterRepository clusterRepository;
     private final KubernetesClientFactory kubernetesClientFactory;
-    private final PersistentVolumeMapper persistentVolumeMapper;
+    private final PersistentVolumeClaimMapper persistentVolumeClaimMapper;
 
     @Override
-    public PersistentVolumeResponse createPersistentVolume(
+    public PersistentVolumeClaimResponse createPersistentVolumeClaim(
             UUID clusterId,
-            CreatePersistentVolumeRequest request
+            CreatePersistentVolumeClaimRequest request
     ) {
 
-        log.info(
-                "Creating PersistentVolume '{}' for cluster '{}'.",
-                request.getName(),
-                clusterId
-        );
+
+        log.info("Creating PVC '{}' in namepace '{}'",request.getName(),
+                request.getNamespace());
 
         Cluster cluster = clusterRepository.findById(clusterId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -65,34 +60,36 @@ public class PersistentVolumeServiceImpl
                              cluster.getEncryptedKubeConfig()
                      )) {
 
-            PersistentVolume existingVolume =
-                    client.persistentVolumes()
+            PersistentVolumeClaim existingPvc =
+                    client.persistentVolumeClaims()
+                            .inNamespace(request.getNamespace())
                             .withName(request.getName())
                             .get();
 
-            if (existingVolume != null) {
+            if (existingPvc != null) {
 
                 throw new BadRequestException(
-                        ErrorCode.PV_ALREADY_EXISTS,
-                        "PersistentVolume already exists."
+                        ErrorCode.PVC_ALREADY_EXISTS,
+                        "PersistentVolumeClaim already exists."
                 );
             }
 
-            PersistentVolume persistentVolume =
-                    buildPersistentVolume(request);
+            PersistentVolumeClaim pvc =
+                    buildPersistentVolumeClaim(request);
 
-            PersistentVolume createdVolume =
-                    client.persistentVolumes()
-                            .resource(persistentVolume)
+            PersistentVolumeClaim createdPvc =
+                    client.persistentVolumeClaims()
+                            .inNamespace(request.getNamespace())
+                            .resource(pvc)
                             .create();
 
             log.info(
-                    "PersistentVolume '{}' created successfully.",
+                    "PVC '{}' created successfully.",
                     request.getName()
             );
 
-            return persistentVolumeMapper.toResponse(
-                    createdVolume
+            return persistentVolumeClaimMapper.toResponse(
+                    createdPvc
             );
 
         } catch (BadRequestException exception) {
@@ -102,258 +99,270 @@ public class PersistentVolumeServiceImpl
         } catch (Exception exception) {
 
             log.error(
-                    "Failed to create PersistentVolume '{}'.",
+                    "Failed to create PVC '{}'.",
                     request.getName(),
                     exception
             );
 
             throw new BadRequestException(
-                    ErrorCode.PV_CREATION_FAILED,
-                    "Unable to create PersistentVolume."
+                    ErrorCode.PVC_CREATION_FAILED,
+                    "Unable to create PersistentVolumeClaim."
             );
         }
     }
 
-    private PersistentVolume buildPersistentVolume(
-            CreatePersistentVolumeRequest request
+    @Override
+    public List<PersistentVolumeClaimSummaryResponse> getPersistentVolumeClaims(
+            UUID clusterId,
+            String namespace
     ) {
 
-        return new PersistentVolumeBuilder()
+        log.info(
+                "Fetching PVCs for cluster '{}' and namespace '{}'.",
+                clusterId,
+                namespace
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            List<PersistentVolumeClaim> pvcs;
+
+            if (namespace == null || namespace.isBlank()) {
+
+                pvcs = client.persistentVolumeClaims()
+                        .inAnyNamespace()
+                        .list()
+                        .getItems();
+
+            } else {
+
+                pvcs = client.persistentVolumeClaims()
+                        .inNamespace(namespace)
+                        .list()
+                        .getItems();
+            }
+
+            log.info(
+                    "Found {} PVC(s) for cluster '{}'.",
+                    pvcs.size(),
+                    clusterId
+            );
+
+            return pvcs.stream()
+                    .map(persistentVolumeClaimMapper::toSummaryResponse)
+                    .toList();
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch PVCs for cluster '{}'.",
+                    clusterId,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.PVC_NOT_FOUND,
+                    "Unable to fetch PersistentVolumeClaims."
+            );
+        }
+    }
+
+    @Override
+    public PersistentVolumeClaimResponse getPersistentVolumeClaim(
+            UUID clusterId,
+            String namespace,
+            String pvcName
+    ) {
+
+        log.info(
+                "Fetching PVC '{}' from namespace '{}' for cluster '{}'.",
+                pvcName,
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            PersistentVolumeClaim pvc =
+                    client.persistentVolumeClaims()
+                            .inNamespace(namespace)
+                            .withName(pvcName)
+                            .get();
+
+            if (pvc == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.PVC_NOT_FOUND,
+                        "PersistentVolumeClaim not found."
+                );
+            }
+
+            log.info(
+                    "PVC '{}' fetched successfully.",
+                    pvcName
+            );
+
+            return persistentVolumeClaimMapper.toResponse(pvc);
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch PVC '{}'.",
+                    pvcName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.PVC_NOT_FOUND,
+                    "Unable to fetch PersistentVolumeClaim."
+            );
+        }
+    }
+
+    @Override
+    public void deletePersistentVolumeClaim(
+            UUID clusterId,
+            String namespace,
+            String pvcName
+    ) {
+
+        log.info(
+                "Deleting PVC '{}' from namespace '{}' for cluster '{}'.",
+                pvcName,
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            PersistentVolumeClaim pvc =
+                    client.persistentVolumeClaims()
+                            .inNamespace(namespace)
+                            .withName(pvcName)
+                            .get();
+
+            if (pvc == null) {
+                throw new ResourceNotFoundException(
+                        ErrorCode.PVC_NOT_FOUND,
+                        "PersistentVolumeClaim not found."
+                );
+            }
+
+            client.persistentVolumeClaims()
+                    .inNamespace(namespace)
+                    .withName(pvcName)
+                    .delete();
+
+            log.info(
+                    "PVC '{}' deleted successfully.",
+                    pvcName
+            );
+
+        } catch (ResourceNotFoundException exception) {
+            throw exception;
+
+        } catch (Exception exception) {
+            log.error(
+                    "Failed to delete PVC '{}'.",
+                    pvcName,
+                    exception
+            );
+        }
+    }
+
+
+    private PersistentVolumeClaim buildPersistentVolumeClaim(
+            CreatePersistentVolumeClaimRequest request
+    ) {
+
+        return new PersistentVolumeClaimBuilder()
 
                 .withNewMetadata()
                 .withName(request.getName())
+                .withNamespace(request.getNamespace())
                 .endMetadata()
 
                 .withNewSpec()
 
-                .withCapacity(
-                        java.util.Map.of(
-                                "storage",
-                                new Quantity(
-                                        request.getStorageSize() + "Gi"
-                                )
-                        )
-                )
-
                 .withAccessModes(
                         "ReadWriteOnce"
-                )
-
-                .withPersistentVolumeReclaimPolicy(
-                        "Retain"
                 )
 
                 .withStorageClassName(
                         request.getStorageClassName()
                 )
 
-                .withNewHostPath()
-                .withPath(request.getHostPath())
-                .endHostPath()
+                .withNewResources()
+
+                .addToRequests(
+                        "storage",
+                        new Quantity(
+                                request.getStorageSize() + "Gi"
+                        )
+                )
+
+                .endResources()
 
                 .endSpec()
 
                 .build();
-    }
-
-    @Override
-    public List<PersistentVolumeSummaryResponse> getPersistentVolumes(
-            UUID clusterId
-    ) {
-
-        log.info(
-                "Fetching PersistentVolumes for cluster '{}'.",
-                clusterId
-        );
-
-        Cluster cluster = clusterRepository.findById(clusterId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCode.CLUSTER_NOT_FOUND,
-                        "Cluster not found."
-                ));
-
-        if (cluster.getEncryptedKubeConfig() == null ||
-                cluster.getEncryptedKubeConfig().isBlank()) {
-
-            throw new BadRequestException(
-                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
-                    "Cluster kubeconfig is not available."
-            );
-        }
-
-        try (KubernetesClient client =
-                     kubernetesClientFactory.createClient(
-                             cluster.getEncryptedKubeConfig()
-                     )) {
-
-            List<PersistentVolume> volumes =
-                    client.persistentVolumes()
-                            .list()
-                            .getItems();
-
-            log.info(
-                    "Found {} PersistentVolume(s) for cluster '{}'.",
-                    volumes.size(),
-                    clusterId
-            );
-
-            return volumes.stream()
-                    .map(persistentVolumeMapper::toSummaryResponse)
-                    .toList();
-
-        } catch (Exception exception) {
-
-            log.error(
-                    "Failed to fetch PersistentVolumes for cluster '{}'.",
-                    clusterId,
-                    exception
-            );
-
-            throw new BadRequestException(
-                    ErrorCode.PV_NOT_FOUND,
-                    "Unable to fetch PersistentVolumes."
-            );
-        }
-    }
-
-    @Override
-    public PersistentVolumeResponse getPersistentVolume(
-            UUID clusterId,
-            String volumeName
-    ) {
-
-        log.info(
-                "Fetching PersistentVolume '{}' for cluster '{}'.",
-                volumeName,
-                clusterId
-        );
-
-        Cluster cluster = clusterRepository.findById(clusterId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCode.CLUSTER_NOT_FOUND,
-                        "Cluster not found."
-                ));
-
-        if (cluster.getEncryptedKubeConfig() == null ||
-                cluster.getEncryptedKubeConfig().isBlank()) {
-
-            throw new BadRequestException(
-                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
-                    "Cluster kubeconfig is not available."
-            );
-        }
-
-        try (KubernetesClient client =
-                     kubernetesClientFactory.createClient(
-                             cluster.getEncryptedKubeConfig()
-                     )) {
-
-            PersistentVolume persistentVolume =
-                    client.persistentVolumes()
-                            .withName(volumeName)
-                            .get();
-
-            if (persistentVolume == null) {
-
-                throw new ResourceNotFoundException(
-                        ErrorCode.PV_NOT_FOUND,
-                        "PersistentVolume not found."
-                );
-            }
-
-            log.info(
-                    "PersistentVolume '{}' fetched successfully.",
-                    volumeName
-            );
-
-            return persistentVolumeMapper.toResponse(
-                    persistentVolume
-            );
-
-        } catch (ResourceNotFoundException exception) {
-
-            throw exception;
-
-        } catch (Exception exception) {
-
-            log.error(
-                    "Failed to fetch PersistentVolume '{}'.",
-                    volumeName,
-                    exception
-            );
-
-            throw new BadRequestException(
-                    ErrorCode.PV_NOT_FOUND,
-                    "Unable to fetch PersistentVolume."
-            );
-        }
-    }
-
-    @Override
-    public void deletePersistentVolume(
-            UUID clusterId,
-            String volumeName
-    ) {
-
-        log.info(
-                "Deleting PersistentVolume '{}' for cluster '{}'.",
-                volumeName,
-                clusterId
-        );
-
-        Cluster cluster = clusterRepository.findById(clusterId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCode.CLUSTER_NOT_FOUND,
-                        "Cluster not found."
-                ));
-
-        if (cluster.getEncryptedKubeConfig() == null ||
-                cluster.getEncryptedKubeConfig().isBlank()) {
-
-            throw new BadRequestException(
-                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
-                    "Cluster kubeconfig is not available."
-            );
-        }
-
-        try (KubernetesClient client =
-                     kubernetesClientFactory.createClient(
-                             cluster.getEncryptedKubeConfig()
-                     )) {
-
-            PersistentVolume persistentVolume =
-                    client.persistentVolumes()
-                            .withName(volumeName)
-                            .get();
-
-            if (persistentVolume == null) {
-                throw new ResourceNotFoundException(
-                        ErrorCode.PV_NOT_FOUND,
-                        "PersistentVolume not found."
-                );
-            }
-            client.persistentVolumes()
-                    .withName(volumeName)
-                    .delete();
-
-            log.info(
-                    "PersistentVolume '{}' deleted successfully.",
-                    volumeName
-            );
-
-        } catch (ResourceNotFoundException exception) {
-            throw exception;
-        } catch (Exception exception) {
-
-            log.error(
-                    "Failed to delete PersistentVolume '{}'.",
-                    volumeName,
-                    exception
-            );
-            throw new BadRequestException(
-                    ErrorCode.PV_DELETION_FAILED,
-                    "Unable to delete PersistentVolume."
-            );
-        }
     }
 }

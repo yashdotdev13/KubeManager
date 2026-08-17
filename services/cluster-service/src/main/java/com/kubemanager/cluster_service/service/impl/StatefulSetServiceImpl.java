@@ -1,21 +1,22 @@
-package com.kubemanager.cluster_service.service.Impl;
+package com.kubemanager.cluster_service.service.impl;
 
-import com.kubemanager.cluster_service.dto.request.CreateJobRequest;
-import com.kubemanager.cluster_service.dto.response.JobResponse;
-import com.kubemanager.cluster_service.dto.response.JobSummaryResponse;
+
+import com.kubemanager.cluster_service.dto.request.CreateStatefulSetRequest;
+import com.kubemanager.cluster_service.dto.response.StatefulSetResponse;
+import com.kubemanager.cluster_service.dto.response.StatefulSetSummaryResponse;
 import com.kubemanager.cluster_service.entity.Cluster;
 import com.kubemanager.cluster_service.kubernates.client.KubernetesClientFactory;
-import com.kubemanager.cluster_service.mapper.JobMapper;
+import com.kubemanager.cluster_service.mapper.StatefulSetMapper;
 import com.kubemanager.cluster_service.repository.ClusterRepository;
-import com.kubemanager.cluster_service.service.JobService;
+import com.kubemanager.cluster_service.service.StatefulSetService;
 import com.kubemanager.exception.BadRequestException;
 import com.kubemanager.exception.ErrorCode;
 import com.kubemanager.exception.ResourceNotFoundException;
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
+import io.fabric8.kubernetes.api.model.apps.StatefulSet;
+import io.fabric8.kubernetes.api.model.apps.StatefulSetBuilder;
 import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
-import io.fabric8.kubernetes.api.model.batch.v1.Job;
-import io.fabric8.kubernetes.api.model.batch.v1.JobBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,21 +28,21 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class JobServiceImpl implements JobService {
+public class StatefulSetServiceImpl implements StatefulSetService {
 
     private final ClusterRepository clusterRepository;
     private final KubernetesClientFactory kubernetesClientFactory;
-    private final JobMapper jobMapper;
+    private final StatefulSetMapper statefulSetMapper;
 
     @Override
-    public JobResponse createJob(
+    public StatefulSetResponse createStatefulSet(
             UUID clusterId,
             String namespace,
-            CreateJobRequest request
+            CreateStatefulSetRequest request
     ) {
 
         log.info(
-                "Creating Job '{}' in namespace '{}' for cluster '{}'.",
+                "Creating StatefulSet '{}' in namespace '{}' for cluster '{}'.",
                 request.getName(),
                 namespace,
                 clusterId
@@ -67,38 +68,39 @@ public class JobServiceImpl implements JobService {
                              cluster.getEncryptedKubeConfig()
                      )) {
 
-            Job existingJob =
-                    client.batch()
-                            .v1()
-                            .jobs()
+            StatefulSet existingStatefulSet =
+                    client.apps()
+                            .statefulSets()
                             .inNamespace(namespace)
                             .withName(request.getName())
                             .get();
 
-            if (existingJob != null) {
+            if (existingStatefulSet != null) {
 
                 throw new BadRequestException(
-                        ErrorCode.JOB_ALREADY_EXISTS,
-                        "Job already exists."
+                        ErrorCode.STATEFUL_SET_ALREADY_EXISTS,
+                        "StatefulSet already exists."
                 );
             }
 
-            Job job = buildJob(namespace, request);
+            StatefulSet statefulSet =
+                    buildStatefulSet(namespace, request);
 
-            Job createdJob =
-                    client.batch()
-                            .v1()
-                            .jobs()
+            StatefulSet createdStatefulSet =
+                    client.apps()
+                            .statefulSets()
                             .inNamespace(namespace)
-                            .resource(job)
+                            .resource(statefulSet)
                             .create();
 
             log.info(
-                    "Job '{}' created successfully.",
+                    "StatefulSet '{}' created successfully.",
                     request.getName()
             );
 
-            return jobMapper.toResponse(createdJob);
+            return statefulSetMapper.toResponse(
+                    createdStatefulSet
+            );
 
         } catch (BadRequestException exception) {
 
@@ -107,21 +109,21 @@ public class JobServiceImpl implements JobService {
         } catch (Exception exception) {
 
             log.error(
-                    "Failed to create Job '{}'.",
+                    "Failed to create StatefulSet '{}'.",
                     request.getName(),
                     exception
             );
 
             throw new BadRequestException(
-                    ErrorCode.JOB_CREATION_FAILED,
-                    "Unable to create Job."
+                    ErrorCode.STATEFUL_SET_CREATION_FAILED,
+                    "Unable to create StatefulSet."
             );
         }
     }
 
-    private Job buildJob(
+    private StatefulSet buildStatefulSet(
             String namespace,
-            CreateJobRequest request
+            CreateStatefulSetRequest request
     ) {
 
         ContainerBuilder containerBuilder =
@@ -129,23 +131,12 @@ public class JobServiceImpl implements JobService {
                         .withName(request.getContainerName())
                         .withImage(request.getImage());
 
-        /*
-         * Convert command string into Kubernetes command.
-         *
-         * Example:
-         * "echo Hello KubeManager"
-         *
-         * becomes:
-         * ["sh", "-c", "echo Hello KubeManager"]
-         */
-        if (request.getCommand() != null &&
-                !request.getCommand().isBlank()) {
+        if (request.getContainerPort() != null) {
 
-            containerBuilder.withCommand(
-                    "sh",
-                    "-c",
-                    request.getCommand()
-            );
+            containerBuilder
+                    .addNewPort()
+                    .withContainerPort(request.getContainerPort())
+                    .endPort();
         }
 
         if (request.getEnvironment() != null &&
@@ -164,7 +155,7 @@ public class JobServiceImpl implements JobService {
         Container container =
                 containerBuilder.build();
 
-        return new JobBuilder()
+        return new StatefulSetBuilder()
 
                 .withNewMetadata()
                 .withName(request.getName())
@@ -174,17 +165,19 @@ public class JobServiceImpl implements JobService {
 
                 .withNewSpec()
 
-                .withBackoffLimit(
-                        request.getBackoffLimit()
+                .withServiceName(
+                        request.getServiceName()
                 )
 
-                .withCompletions(
-                        request.getCompletions()
+                .withReplicas(
+                        request.getReplicas()
                 )
 
-                .withParallelism(
-                        request.getParallelism()
+                .withNewSelector()
+                .withMatchLabels(
+                        request.getLabels()
                 )
+                .endSelector()
 
                 .withTemplate(
                         new PodTemplateSpecBuilder()
@@ -196,7 +189,6 @@ public class JobServiceImpl implements JobService {
                                 .endMetadata()
 
                                 .withNewSpec()
-                                .withRestartPolicy("Never")
                                 .withContainers(container)
                                 .endSpec()
 
@@ -209,13 +201,13 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
-    public List<JobSummaryResponse> getJobs(
+    public List<StatefulSetSummaryResponse> getStatefulSets(
             UUID clusterId,
             String namespace
     ) {
 
         log.info(
-                "Fetching Jobs in namespace '{}' for cluster '{}'.",
+                "Fetching StatefulSets in namespace '{}' for cluster '{}'.",
                 namespace,
                 clusterId
         );
@@ -240,49 +232,48 @@ public class JobServiceImpl implements JobService {
                              cluster.getEncryptedKubeConfig()
                      )) {
 
-            List<Job> jobs =
-                    client.batch()
-                            .v1()
-                            .jobs()
+            List<StatefulSet> statefulSets =
+                    client.apps()
+                            .statefulSets()
                             .inNamespace(namespace)
                             .list()
                             .getItems();
 
             log.info(
-                    "Found {} Job(s) in namespace '{}'.",
-                    jobs.size(),
+                    "Found {} StatefulSet(s) in namespace '{}'.",
+                    statefulSets.size(),
                     namespace
             );
 
-            return jobs.stream()
-                    .map(jobMapper::toSummaryResponse)
+            return statefulSets.stream()
+                    .map(statefulSetMapper::toSummaryResponse)
                     .toList();
 
         } catch (Exception exception) {
 
             log.error(
-                    "Failed to fetch Jobs in namespace '{}'.",
+                    "Failed to fetch StatefulSets in namespace '{}'.",
                     namespace,
                     exception
             );
 
             throw new BadRequestException(
-                    ErrorCode.JOB_NOT_FOUND,
-                    "Unable to fetch Jobs."
+                    ErrorCode.STATEFUL_SET_NOT_FOUND,
+                    "Unable to fetch StatefulSets."
             );
         }
     }
 
     @Override
-    public JobResponse getJob(
+    public StatefulSetResponse getStatefulSet(
             UUID clusterId,
             String namespace,
-            String jobName
+            String statefulSetName
     ) {
 
         log.info(
-                "Fetching Job '{}' in namespace '{}' for cluster '{}'.",
-                jobName,
+                "Fetching StatefulSet '{}' in namespace '{}' for cluster '{}'.",
+                statefulSetName,
                 namespace,
                 clusterId
         );
@@ -307,28 +298,29 @@ public class JobServiceImpl implements JobService {
                              cluster.getEncryptedKubeConfig()
                      )) {
 
-            Job job =
-                    client.batch()
-                            .v1()
-                            .jobs()
+            StatefulSet statefulSet =
+                    client.apps()
+                            .statefulSets()
                             .inNamespace(namespace)
-                            .withName(jobName)
+                            .withName(statefulSetName)
                             .get();
 
-            if (job == null) {
+            if (statefulSet == null) {
 
                 throw new ResourceNotFoundException(
-                        ErrorCode.JOB_NOT_FOUND,
-                        "Job not found."
+                        ErrorCode.STATEFUL_SET_NOT_FOUND,
+                        "StatefulSet not found."
                 );
             }
 
             log.info(
-                    "Job '{}' fetched successfully.",
-                    jobName
+                    "StatefulSet '{}' fetched successfully.",
+                    statefulSetName
             );
 
-            return jobMapper.toResponse(job);
+            return statefulSetMapper.toResponse(
+                    statefulSet
+            );
 
         } catch (ResourceNotFoundException exception) {
 
@@ -337,28 +329,28 @@ public class JobServiceImpl implements JobService {
         } catch (Exception exception) {
 
             log.error(
-                    "Failed to fetch Job '{}'.",
-                    jobName,
+                    "Failed to fetch StatefulSet '{}'.",
+                    statefulSetName,
                     exception
             );
 
             throw new BadRequestException(
-                    ErrorCode.JOB_NOT_FOUND,
-                    "Unable to fetch Job."
+                    ErrorCode.STATEFUL_SET_NOT_FOUND,
+                    "Unable to fetch StatefulSet."
             );
         }
     }
 
     @Override
-    public void deleteJob(
+    public void deleteStatefulSet(
             UUID clusterId,
             String namespace,
-            String jobName
+            String statefulSetName
     ) {
 
         log.info(
-                "Deleting Job '{}' in namespace '{}' for cluster '{}'.",
-                jobName,
+                "Deleting StatefulSet '{}' in namespace '{}' for cluster '{}'.",
+                statefulSetName,
                 namespace,
                 clusterId
         );
@@ -383,32 +375,30 @@ public class JobServiceImpl implements JobService {
                              cluster.getEncryptedKubeConfig()
                      )) {
 
-            Job job =
-                    client.batch()
-                            .v1()
-                            .jobs()
+            StatefulSet statefulSet =
+                    client.apps()
+                            .statefulSets()
                             .inNamespace(namespace)
-                            .withName(jobName)
+                            .withName(statefulSetName)
                             .get();
 
-            if (job == null) {
+            if (statefulSet == null) {
 
                 throw new ResourceNotFoundException(
-                        ErrorCode.JOB_NOT_FOUND,
-                        "Job not found."
+                        ErrorCode.STATEFUL_SET_NOT_FOUND,
+                        "StatefulSet not found."
                 );
             }
 
-            client.batch()
-                    .v1()
-                    .jobs()
+            client.apps()
+                    .statefulSets()
                     .inNamespace(namespace)
-                    .withName(jobName)
+                    .withName(statefulSetName)
                     .delete();
 
             log.info(
-                    "Job '{}' deleted successfully.",
-                    jobName
+                    "StatefulSet '{}' deleted successfully.",
+                    statefulSetName
             );
 
         } catch (ResourceNotFoundException exception) {
@@ -418,14 +408,14 @@ public class JobServiceImpl implements JobService {
         } catch (Exception exception) {
 
             log.error(
-                    "Failed to delete Job '{}'.",
-                    jobName,
+                    "Failed to delete StatefulSet '{}'.",
+                    statefulSetName,
                     exception
             );
 
             throw new BadRequestException(
-                    ErrorCode.JOB_DELETION_FAILED,
-                    "Unable to delete Job."
+                    ErrorCode.STATEFUL_SET_DELETION_FAILED,
+                    "Unable to delete StatefulSet."
             );
         }
     }

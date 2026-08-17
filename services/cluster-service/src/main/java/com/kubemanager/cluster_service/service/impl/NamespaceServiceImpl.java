@@ -1,4 +1,4 @@
-package com.kubemanager.cluster_service.service.Impl;
+package com.kubemanager.cluster_service.service.impl;
 
 import com.kubemanager.cluster_service.dto.request.CreateNamespaceRequest;
 import com.kubemanager.cluster_service.dto.response.NamespaceResponse;

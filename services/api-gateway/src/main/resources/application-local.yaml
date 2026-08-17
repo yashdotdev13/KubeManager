@@ -74,3 +74,9 @@ spring:
           uri: lb://CLUSTER-SERVICE
           predicates:
             - Path=/api/v1/clusters/**
+
+
+        - id: ai-service
+          uri: lb://AI-SERVICE
+          predicates:
+            - Path=/api/v1/ai/**

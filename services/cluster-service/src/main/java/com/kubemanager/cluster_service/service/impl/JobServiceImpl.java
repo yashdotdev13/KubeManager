@@ -1,48 +1,47 @@
-package com.kubemanager.cluster_service.service.Impl;
+package com.kubemanager.cluster_service.service.impl;
 
-
-import com.kubemanager.cluster_service.dto.request.CreateReplicaSetRequest;
-import com.kubemanager.cluster_service.dto.request.ReplicaSetResponse;
-import com.kubemanager.cluster_service.dto.request.ReplicaSetSummaryResponse;
+import com.kubemanager.cluster_service.dto.request.CreateJobRequest;
+import com.kubemanager.cluster_service.dto.response.JobResponse;
+import com.kubemanager.cluster_service.dto.response.JobSummaryResponse;
 import com.kubemanager.cluster_service.entity.Cluster;
 import com.kubemanager.cluster_service.kubernates.client.KubernetesClientFactory;
-import com.kubemanager.cluster_service.mapper.ReplicaSetMapper;
+import com.kubemanager.cluster_service.mapper.JobMapper;
 import com.kubemanager.cluster_service.repository.ClusterRepository;
-import com.kubemanager.cluster_service.service.ReplicaSetService;
+import com.kubemanager.cluster_service.service.JobService;
 import com.kubemanager.exception.BadRequestException;
 import com.kubemanager.exception.ErrorCode;
 import com.kubemanager.exception.ResourceNotFoundException;
+import io.fabric8.kubernetes.api.model.Container;
+import io.fabric8.kubernetes.api.model.ContainerBuilder;
+import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
+import io.fabric8.kubernetes.api.model.batch.v1.Job;
+import io.fabric8.kubernetes.api.model.batch.v1.JobBuilder;
+import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import io.fabric8.kubernetes.api.model.Container;
-import io.fabric8.kubernetes.api.model.ContainerBuilder;
-import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
-import io.fabric8.kubernetes.api.model.apps.ReplicaSet;
-import io.fabric8.kubernetes.api.model.apps.ReplicaSetBuilder;
-import io.fabric8.kubernetes.client.KubernetesClient;
+
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
-public class ReplicaSetServiceImpl implements ReplicaSetService {
+public class JobServiceImpl implements JobService {
 
     private final ClusterRepository clusterRepository;
     private final KubernetesClientFactory kubernetesClientFactory;
-    private final ReplicaSetMapper replicaSetMapper;
-
+    private final JobMapper jobMapper;
 
     @Override
-    public ReplicaSetResponse createReplicaSet(
+    public JobResponse createJob(
             UUID clusterId,
             String namespace,
-            CreateReplicaSetRequest request
+            CreateJobRequest request
     ) {
 
         log.info(
-                "Creating ReplicaSet '{}' in namespace '{}' for cluster '{}'.",
+                "Creating Job '{}' in namespace '{}' for cluster '{}'.",
                 request.getName(),
                 namespace,
                 clusterId
@@ -68,37 +67,38 @@ public class ReplicaSetServiceImpl implements ReplicaSetService {
                              cluster.getEncryptedKubeConfig()
                      )) {
 
-            ReplicaSet existingReplicaSet =
-                    client.apps()
-                            .replicaSets()
+            Job existingJob =
+                    client.batch()
+                            .v1()
+                            .jobs()
                             .inNamespace(namespace)
                             .withName(request.getName())
                             .get();
 
-            if (existingReplicaSet != null) {
+            if (existingJob != null) {
 
                 throw new BadRequestException(
-                        ErrorCode.REPLICA_SET_ALREADY_EXISTS,
-                        "ReplicaSet already exists."
+                        ErrorCode.JOB_ALREADY_EXISTS,
+                        "Job already exists."
                 );
             }
 
-            ReplicaSet replicaSet =
-                    buildReplicaSet(namespace, request);
+            Job job = buildJob(namespace, request);
 
-            ReplicaSet createdReplicaSet =
-                    client.apps()
-                            .replicaSets()
+            Job createdJob =
+                    client.batch()
+                            .v1()
+                            .jobs()
                             .inNamespace(namespace)
-                            .resource(replicaSet)
+                            .resource(job)
                             .create();
 
             log.info(
-                    "ReplicaSet '{}' created successfully.",
+                    "Job '{}' created successfully.",
                     request.getName()
             );
 
-            return replicaSetMapper.toResponse(createdReplicaSet);
+            return jobMapper.toResponse(createdJob);
 
         } catch (BadRequestException exception) {
 
@@ -107,240 +107,21 @@ public class ReplicaSetServiceImpl implements ReplicaSetService {
         } catch (Exception exception) {
 
             log.error(
-                    "Failed to create ReplicaSet '{}'.",
+                    "Failed to create Job '{}'.",
                     request.getName(),
                     exception
             );
 
             throw new BadRequestException(
-                    ErrorCode.REPLICA_SET_CREATION_FAILED,
-                    "Unable to create ReplicaSet."
+                    ErrorCode.JOB_CREATION_FAILED,
+                    "Unable to create Job."
             );
         }
     }
 
-    @Override
-    public List<ReplicaSetSummaryResponse> getReplicaSets(
-            UUID clusterId,
-            String namespace
-    ) {
-
-        log.info(
-                "Fetching ReplicaSets in namespace '{}' for cluster '{}'.",
-                namespace,
-                clusterId
-        );
-
-        Cluster cluster = clusterRepository.findById(clusterId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCode.CLUSTER_NOT_FOUND,
-                        "Cluster not found."
-                ));
-
-        if (cluster.getEncryptedKubeConfig() == null ||
-                cluster.getEncryptedKubeConfig().isBlank()) {
-
-            throw new BadRequestException(
-                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
-                    "Cluster kubeconfig is not available."
-            );
-        }
-
-        try (KubernetesClient client =
-                     kubernetesClientFactory.createClient(
-                             cluster.getEncryptedKubeConfig()
-                     )) {
-
-            List<ReplicaSet> replicaSets =
-                    client.apps()
-                            .replicaSets()
-                            .inNamespace(namespace)
-                            .list()
-                            .getItems();
-
-            log.info(
-                    "Found {} ReplicaSet(s) in namespace '{}'.",
-                    replicaSets.size(),
-                    namespace
-            );
-
-            return replicaSets.stream()
-                    .map(replicaSetMapper::toSummaryResponse)
-                    .toList();
-
-        } catch (Exception exception) {
-
-            log.error(
-                    "Failed to fetch ReplicaSets in namespace '{}'.",
-                    namespace,
-                    exception
-            );
-
-            throw new BadRequestException(
-                    ErrorCode.REPLICA_SET_NOT_FOUND,
-                    "Unable to fetch ReplicaSets."
-            );
-        }
-    }
-
-    @Override
-    public ReplicaSetResponse getReplicaSet(
-            UUID clusterId,
+    private Job buildJob(
             String namespace,
-            String replicaSetName
-    ) {
-
-        log.info(
-                "Fetching ReplicaSet '{}' in namespace '{}' for cluster '{}'.",
-                replicaSetName,
-                namespace,
-                clusterId
-        );
-
-        Cluster cluster = clusterRepository.findById(clusterId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCode.CLUSTER_NOT_FOUND,
-                        "Cluster not found."
-                ));
-
-        if (cluster.getEncryptedKubeConfig() == null ||
-                cluster.getEncryptedKubeConfig().isBlank()) {
-
-            throw new BadRequestException(
-                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
-                    "Cluster kubeconfig is not available."
-            );
-        }
-
-        try (KubernetesClient client =
-                     kubernetesClientFactory.createClient(
-                             cluster.getEncryptedKubeConfig()
-                     )) {
-
-            ReplicaSet replicaSet =
-                    client.apps()
-                            .replicaSets()
-                            .inNamespace(namespace)
-                            .withName(replicaSetName)
-                            .get();
-
-            if (replicaSet == null) {
-
-                throw new ResourceNotFoundException(
-                        ErrorCode.REPLICA_SET_NOT_FOUND,
-                        "ReplicaSet not found."
-                );
-            }
-
-            log.info(
-                    "ReplicaSet '{}' fetched successfully.",
-                    replicaSetName
-            );
-
-            return replicaSetMapper.toResponse(replicaSet);
-
-        } catch (ResourceNotFoundException exception) {
-
-            throw exception;
-
-        } catch (Exception exception) {
-
-            log.error(
-                    "Failed to fetch ReplicaSet '{}'.",
-                    replicaSetName,
-                    exception
-            );
-
-            throw new BadRequestException(
-                    ErrorCode.REPLICA_SET_NOT_FOUND,
-                    "Unable to fetch ReplicaSet."
-            );
-        }
-    }
-
-    @Override
-    public void deleteReplicaSet(
-            UUID clusterId,
-            String namespace,
-            String replicaSetName
-    ) {
-
-        log.info(
-                "Deleting ReplicaSet '{}' in namespace '{}' for cluster '{}'.",
-                replicaSetName,
-                namespace,
-                clusterId
-        );
-
-        Cluster cluster = clusterRepository.findById(clusterId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCode.CLUSTER_NOT_FOUND,
-                        "Cluster not found."
-                ));
-
-        if (cluster.getEncryptedKubeConfig() == null ||
-                cluster.getEncryptedKubeConfig().isBlank()) {
-
-            throw new BadRequestException(
-                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
-                    "Cluster kubeconfig is not available."
-            );
-        }
-
-        try (KubernetesClient client =
-                     kubernetesClientFactory.createClient(
-                             cluster.getEncryptedKubeConfig()
-                     )) {
-
-            ReplicaSet replicaSet =
-                    client.apps()
-                            .replicaSets()
-                            .inNamespace(namespace)
-                            .withName(replicaSetName)
-                            .get();
-
-            if (replicaSet == null) {
-
-                throw new ResourceNotFoundException(
-                        ErrorCode.REPLICA_SET_NOT_FOUND,
-                        "ReplicaSet not found."
-                );
-            }
-
-            client.apps()
-                    .replicaSets()
-                    .inNamespace(namespace)
-                    .withName(replicaSetName)
-                    .delete();
-
-            log.info(
-                    "ReplicaSet '{}' deleted successfully.",
-                    replicaSetName
-            );
-
-        } catch (ResourceNotFoundException exception) {
-
-            throw exception;
-
-        } catch (Exception exception) {
-
-            log.error(
-                    "Failed to delete ReplicaSet '{}'.",
-                    replicaSetName,
-                    exception
-            );
-
-            throw new BadRequestException(
-                    ErrorCode.REPLICA_SET_DELETION_FAILED,
-                    "Unable to delete ReplicaSet."
-            );
-        }
-    }
-
-
-    private ReplicaSet buildReplicaSet(
-            String namespace,
-            CreateReplicaSetRequest request
+            CreateJobRequest request
     ) {
 
         ContainerBuilder containerBuilder =
@@ -348,6 +129,15 @@ public class ReplicaSetServiceImpl implements ReplicaSetService {
                         .withName(request.getContainerName())
                         .withImage(request.getImage());
 
+        /*
+         * Convert command string into Kubernetes command.
+         *
+         * Example:
+         * "echo Hello KubeManager"
+         *
+         * becomes:
+         * ["sh", "-c", "echo Hello KubeManager"]
+         */
         if (request.getCommand() != null &&
                 !request.getCommand().isBlank()) {
 
@@ -371,9 +161,10 @@ public class ReplicaSetServiceImpl implements ReplicaSetService {
                     );
         }
 
-        Container container = containerBuilder.build();
+        Container container =
+                containerBuilder.build();
 
-        return new ReplicaSetBuilder()
+        return new JobBuilder()
 
                 .withNewMetadata()
                 .withName(request.getName())
@@ -383,29 +174,259 @@ public class ReplicaSetServiceImpl implements ReplicaSetService {
 
                 .withNewSpec()
 
-                .withReplicas(request.getReplicas())
-
-                .withSelector(
-                        new LabelSelectorBuilder()
-                                .withMatchLabels(request.getLabels())
-                                .build()
+                .withBackoffLimit(
+                        request.getBackoffLimit()
                 )
 
-                .withNewTemplate()
+                .withCompletions(
+                        request.getCompletions()
+                )
 
-                .withNewMetadata()
-                .withLabels(request.getLabels())
-                .endMetadata()
+                .withParallelism(
+                        request.getParallelism()
+                )
 
-                .withNewSpec()
-                .withRestartPolicy("Always")
-                .withContainers(container)
-                .endSpec()
+                .withTemplate(
+                        new PodTemplateSpecBuilder()
 
-                .endTemplate()
+                                .withNewMetadata()
+                                .withLabels(
+                                        request.getLabels()
+                                )
+                                .endMetadata()
+
+                                .withNewSpec()
+                                .withRestartPolicy("Never")
+                                .withContainers(container)
+                                .endSpec()
+
+                                .build()
+                )
 
                 .endSpec()
 
                 .build();
+    }
+
+    @Override
+    public List<JobSummaryResponse> getJobs(
+            UUID clusterId,
+            String namespace
+    ) {
+
+        log.info(
+                "Fetching Jobs in namespace '{}' for cluster '{}'.",
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            List<Job> jobs =
+                    client.batch()
+                            .v1()
+                            .jobs()
+                            .inNamespace(namespace)
+                            .list()
+                            .getItems();
+
+            log.info(
+                    "Found {} Job(s) in namespace '{}'.",
+                    jobs.size(),
+                    namespace
+            );
+
+            return jobs.stream()
+                    .map(jobMapper::toSummaryResponse)
+                    .toList();
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch Jobs in namespace '{}'.",
+                    namespace,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.JOB_NOT_FOUND,
+                    "Unable to fetch Jobs."
+            );
+        }
+    }
+
+    @Override
+    public JobResponse getJob(
+            UUID clusterId,
+            String namespace,
+            String jobName
+    ) {
+
+        log.info(
+                "Fetching Job '{}' in namespace '{}' for cluster '{}'.",
+                jobName,
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            Job job =
+                    client.batch()
+                            .v1()
+                            .jobs()
+                            .inNamespace(namespace)
+                            .withName(jobName)
+                            .get();
+
+            if (job == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.JOB_NOT_FOUND,
+                        "Job not found."
+                );
+            }
+
+            log.info(
+                    "Job '{}' fetched successfully.",
+                    jobName
+            );
+
+            return jobMapper.toResponse(job);
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch Job '{}'.",
+                    jobName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.JOB_NOT_FOUND,
+                    "Unable to fetch Job."
+            );
+        }
+    }
+
+    @Override
+    public void deleteJob(
+            UUID clusterId,
+            String namespace,
+            String jobName
+    ) {
+
+        log.info(
+                "Deleting Job '{}' in namespace '{}' for cluster '{}'.",
+                jobName,
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            Job job =
+                    client.batch()
+                            .v1()
+                            .jobs()
+                            .inNamespace(namespace)
+                            .withName(jobName)
+                            .get();
+
+            if (job == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.JOB_NOT_FOUND,
+                        "Job not found."
+                );
+            }
+
+            client.batch()
+                    .v1()
+                    .jobs()
+                    .inNamespace(namespace)
+                    .withName(jobName)
+                    .delete();
+
+            log.info(
+                    "Job '{}' deleted successfully.",
+                    jobName
+            );
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to delete Job '{}'.",
+                    jobName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.JOB_DELETION_FAILED,
+                    "Unable to delete Job."
+            );
+        }
     }
 }

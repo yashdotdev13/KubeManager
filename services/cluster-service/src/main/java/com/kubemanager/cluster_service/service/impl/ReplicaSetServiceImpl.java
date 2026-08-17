@@ -1,49 +1,48 @@
-package com.kubemanager.cluster_service.service.Impl;
+package com.kubemanager.cluster_service.service.impl;
 
 
-import com.kubemanager.cluster_service.dto.request.CreateStatefulSetRequest;
-import com.kubemanager.cluster_service.dto.response.StatefulSetResponse;
-import com.kubemanager.cluster_service.dto.response.StatefulSetSummaryResponse;
+import com.kubemanager.cluster_service.dto.request.CreateReplicaSetRequest;
+import com.kubemanager.cluster_service.dto.request.ReplicaSetResponse;
+import com.kubemanager.cluster_service.dto.request.ReplicaSetSummaryResponse;
 import com.kubemanager.cluster_service.entity.Cluster;
 import com.kubemanager.cluster_service.kubernates.client.KubernetesClientFactory;
-import com.kubemanager.cluster_service.mapper.StatefulSetMapper;
+import com.kubemanager.cluster_service.mapper.ReplicaSetMapper;
 import com.kubemanager.cluster_service.repository.ClusterRepository;
-import com.kubemanager.cluster_service.service.StatefulSetService;
+import com.kubemanager.cluster_service.service.ReplicaSetService;
 import com.kubemanager.exception.BadRequestException;
 import com.kubemanager.exception.ErrorCode;
 import com.kubemanager.exception.ResourceNotFoundException;
-import io.fabric8.kubernetes.api.model.Container;
-import io.fabric8.kubernetes.api.model.ContainerBuilder;
-import io.fabric8.kubernetes.api.model.apps.StatefulSet;
-import io.fabric8.kubernetes.api.model.apps.StatefulSetBuilder;
-import io.fabric8.kubernetes.api.model.apps.StatefulSetSpec;
-import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
-import io.fabric8.kubernetes.client.KubernetesClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
+import io.fabric8.kubernetes.api.model.Container;
+import io.fabric8.kubernetes.api.model.ContainerBuilder;
+import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
+import io.fabric8.kubernetes.api.model.apps.ReplicaSet;
+import io.fabric8.kubernetes.api.model.apps.ReplicaSetBuilder;
+import io.fabric8.kubernetes.client.KubernetesClient;
 import java.util.List;
 import java.util.UUID;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
-public class StatefulSetServiceImpl implements StatefulSetService {
+@Slf4j
+public class ReplicaSetServiceImpl implements ReplicaSetService {
 
     private final ClusterRepository clusterRepository;
     private final KubernetesClientFactory kubernetesClientFactory;
-    private final StatefulSetMapper statefulSetMapper;
+    private final ReplicaSetMapper replicaSetMapper;
+
 
     @Override
-    public StatefulSetResponse createStatefulSet(
+    public ReplicaSetResponse createReplicaSet(
             UUID clusterId,
             String namespace,
-            CreateStatefulSetRequest request
+            CreateReplicaSetRequest request
     ) {
 
         log.info(
-                "Creating StatefulSet '{}' in namespace '{}' for cluster '{}'.",
+                "Creating ReplicaSet '{}' in namespace '{}' for cluster '{}'.",
                 request.getName(),
                 namespace,
                 clusterId
@@ -69,39 +68,37 @@ public class StatefulSetServiceImpl implements StatefulSetService {
                              cluster.getEncryptedKubeConfig()
                      )) {
 
-            StatefulSet existingStatefulSet =
+            ReplicaSet existingReplicaSet =
                     client.apps()
-                            .statefulSets()
+                            .replicaSets()
                             .inNamespace(namespace)
                             .withName(request.getName())
                             .get();
 
-            if (existingStatefulSet != null) {
+            if (existingReplicaSet != null) {
 
                 throw new BadRequestException(
-                        ErrorCode.STATEFUL_SET_ALREADY_EXISTS,
-                        "StatefulSet already exists."
+                        ErrorCode.REPLICA_SET_ALREADY_EXISTS,
+                        "ReplicaSet already exists."
                 );
             }
 
-            StatefulSet statefulSet =
-                    buildStatefulSet(namespace, request);
+            ReplicaSet replicaSet =
+                    buildReplicaSet(namespace, request);
 
-            StatefulSet createdStatefulSet =
+            ReplicaSet createdReplicaSet =
                     client.apps()
-                            .statefulSets()
+                            .replicaSets()
                             .inNamespace(namespace)
-                            .resource(statefulSet)
+                            .resource(replicaSet)
                             .create();
 
             log.info(
-                    "StatefulSet '{}' created successfully.",
+                    "ReplicaSet '{}' created successfully.",
                     request.getName()
             );
 
-            return statefulSetMapper.toResponse(
-                    createdStatefulSet
-            );
+            return replicaSetMapper.toResponse(createdReplicaSet);
 
         } catch (BadRequestException exception) {
 
@@ -110,21 +107,240 @@ public class StatefulSetServiceImpl implements StatefulSetService {
         } catch (Exception exception) {
 
             log.error(
-                    "Failed to create StatefulSet '{}'.",
+                    "Failed to create ReplicaSet '{}'.",
                     request.getName(),
                     exception
             );
 
             throw new BadRequestException(
-                    ErrorCode.STATEFUL_SET_CREATION_FAILED,
-                    "Unable to create StatefulSet."
+                    ErrorCode.REPLICA_SET_CREATION_FAILED,
+                    "Unable to create ReplicaSet."
             );
         }
     }
 
-    private StatefulSet buildStatefulSet(
+    @Override
+    public List<ReplicaSetSummaryResponse> getReplicaSets(
+            UUID clusterId,
+            String namespace
+    ) {
+
+        log.info(
+                "Fetching ReplicaSets in namespace '{}' for cluster '{}'.",
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            List<ReplicaSet> replicaSets =
+                    client.apps()
+                            .replicaSets()
+                            .inNamespace(namespace)
+                            .list()
+                            .getItems();
+
+            log.info(
+                    "Found {} ReplicaSet(s) in namespace '{}'.",
+                    replicaSets.size(),
+                    namespace
+            );
+
+            return replicaSets.stream()
+                    .map(replicaSetMapper::toSummaryResponse)
+                    .toList();
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch ReplicaSets in namespace '{}'.",
+                    namespace,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.REPLICA_SET_NOT_FOUND,
+                    "Unable to fetch ReplicaSets."
+            );
+        }
+    }
+
+    @Override
+    public ReplicaSetResponse getReplicaSet(
+            UUID clusterId,
             String namespace,
-            CreateStatefulSetRequest request
+            String replicaSetName
+    ) {
+
+        log.info(
+                "Fetching ReplicaSet '{}' in namespace '{}' for cluster '{}'.",
+                replicaSetName,
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            ReplicaSet replicaSet =
+                    client.apps()
+                            .replicaSets()
+                            .inNamespace(namespace)
+                            .withName(replicaSetName)
+                            .get();
+
+            if (replicaSet == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.REPLICA_SET_NOT_FOUND,
+                        "ReplicaSet not found."
+                );
+            }
+
+            log.info(
+                    "ReplicaSet '{}' fetched successfully.",
+                    replicaSetName
+            );
+
+            return replicaSetMapper.toResponse(replicaSet);
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch ReplicaSet '{}'.",
+                    replicaSetName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.REPLICA_SET_NOT_FOUND,
+                    "Unable to fetch ReplicaSet."
+            );
+        }
+    }
+
+    @Override
+    public void deleteReplicaSet(
+            UUID clusterId,
+            String namespace,
+            String replicaSetName
+    ) {
+
+        log.info(
+                "Deleting ReplicaSet '{}' in namespace '{}' for cluster '{}'.",
+                replicaSetName,
+                namespace,
+                clusterId
+        );
+
+        Cluster cluster = clusterRepository.findById(clusterId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        ErrorCode.CLUSTER_NOT_FOUND,
+                        "Cluster not found."
+                ));
+
+        if (cluster.getEncryptedKubeConfig() == null ||
+                cluster.getEncryptedKubeConfig().isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster kubeconfig is not available."
+            );
+        }
+
+        try (KubernetesClient client =
+                     kubernetesClientFactory.createClient(
+                             cluster.getEncryptedKubeConfig()
+                     )) {
+
+            ReplicaSet replicaSet =
+                    client.apps()
+                            .replicaSets()
+                            .inNamespace(namespace)
+                            .withName(replicaSetName)
+                            .get();
+
+            if (replicaSet == null) {
+
+                throw new ResourceNotFoundException(
+                        ErrorCode.REPLICA_SET_NOT_FOUND,
+                        "ReplicaSet not found."
+                );
+            }
+
+            client.apps()
+                    .replicaSets()
+                    .inNamespace(namespace)
+                    .withName(replicaSetName)
+                    .delete();
+
+            log.info(
+                    "ReplicaSet '{}' deleted successfully.",
+                    replicaSetName
+            );
+
+        } catch (ResourceNotFoundException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to delete ReplicaSet '{}'.",
+                    replicaSetName,
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.REPLICA_SET_DELETION_FAILED,
+                    "Unable to delete ReplicaSet."
+            );
+        }
+    }
+
+
+    private ReplicaSet buildReplicaSet(
+            String namespace,
+            CreateReplicaSetRequest request
     ) {
 
         ContainerBuilder containerBuilder =
@@ -132,12 +348,14 @@ public class StatefulSetServiceImpl implements StatefulSetService {
                         .withName(request.getContainerName())
                         .withImage(request.getImage());
 
-        if (request.getContainerPort() != null) {
+        if (request.getCommand() != null &&
+                !request.getCommand().isBlank()) {
 
-            containerBuilder
-                    .addNewPort()
-                    .withContainerPort(request.getContainerPort())
-                    .endPort();
+            containerBuilder.withCommand(
+                    "sh",
+                    "-c",
+                    request.getCommand()
+            );
         }
 
         if (request.getEnvironment() != null &&
@@ -153,10 +371,9 @@ public class StatefulSetServiceImpl implements StatefulSetService {
                     );
         }
 
-        Container container =
-                containerBuilder.build();
+        Container container = containerBuilder.build();
 
-        return new StatefulSetBuilder()
+        return new ReplicaSetBuilder()
 
                 .withNewMetadata()
                 .withName(request.getName())
@@ -166,258 +383,29 @@ public class StatefulSetServiceImpl implements StatefulSetService {
 
                 .withNewSpec()
 
-                .withServiceName(
-                        request.getServiceName()
-                )
+                .withReplicas(request.getReplicas())
 
-                .withReplicas(
-                        request.getReplicas()
-                )
-
-                .withNewSelector()
-                .withMatchLabels(
-                        request.getLabels()
-                )
-                .endSelector()
-
-                .withTemplate(
-                        new PodTemplateSpecBuilder()
-
-                                .withNewMetadata()
-                                .withLabels(
-                                        request.getLabels()
-                                )
-                                .endMetadata()
-
-                                .withNewSpec()
-                                .withContainers(container)
-                                .endSpec()
-
+                .withSelector(
+                        new LabelSelectorBuilder()
+                                .withMatchLabels(request.getLabels())
                                 .build()
                 )
+
+                .withNewTemplate()
+
+                .withNewMetadata()
+                .withLabels(request.getLabels())
+                .endMetadata()
+
+                .withNewSpec()
+                .withRestartPolicy("Always")
+                .withContainers(container)
+                .endSpec()
+
+                .endTemplate()
 
                 .endSpec()
 
                 .build();
-    }
-
-    @Override
-    public List<StatefulSetSummaryResponse> getStatefulSets(
-            UUID clusterId,
-            String namespace
-    ) {
-
-        log.info(
-                "Fetching StatefulSets in namespace '{}' for cluster '{}'.",
-                namespace,
-                clusterId
-        );
-
-        Cluster cluster = clusterRepository.findById(clusterId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCode.CLUSTER_NOT_FOUND,
-                        "Cluster not found."
-                ));
-
-        if (cluster.getEncryptedKubeConfig() == null ||
-                cluster.getEncryptedKubeConfig().isBlank()) {
-
-            throw new BadRequestException(
-                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
-                    "Cluster kubeconfig is not available."
-            );
-        }
-
-        try (KubernetesClient client =
-                     kubernetesClientFactory.createClient(
-                             cluster.getEncryptedKubeConfig()
-                     )) {
-
-            List<StatefulSet> statefulSets =
-                    client.apps()
-                            .statefulSets()
-                            .inNamespace(namespace)
-                            .list()
-                            .getItems();
-
-            log.info(
-                    "Found {} StatefulSet(s) in namespace '{}'.",
-                    statefulSets.size(),
-                    namespace
-            );
-
-            return statefulSets.stream()
-                    .map(statefulSetMapper::toSummaryResponse)
-                    .toList();
-
-        } catch (Exception exception) {
-
-            log.error(
-                    "Failed to fetch StatefulSets in namespace '{}'.",
-                    namespace,
-                    exception
-            );
-
-            throw new BadRequestException(
-                    ErrorCode.STATEFUL_SET_NOT_FOUND,
-                    "Unable to fetch StatefulSets."
-            );
-        }
-    }
-
-    @Override
-    public StatefulSetResponse getStatefulSet(
-            UUID clusterId,
-            String namespace,
-            String statefulSetName
-    ) {
-
-        log.info(
-                "Fetching StatefulSet '{}' in namespace '{}' for cluster '{}'.",
-                statefulSetName,
-                namespace,
-                clusterId
-        );
-
-        Cluster cluster = clusterRepository.findById(clusterId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCode.CLUSTER_NOT_FOUND,
-                        "Cluster not found."
-                ));
-
-        if (cluster.getEncryptedKubeConfig() == null ||
-                cluster.getEncryptedKubeConfig().isBlank()) {
-
-            throw new BadRequestException(
-                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
-                    "Cluster kubeconfig is not available."
-            );
-        }
-
-        try (KubernetesClient client =
-                     kubernetesClientFactory.createClient(
-                             cluster.getEncryptedKubeConfig()
-                     )) {
-
-            StatefulSet statefulSet =
-                    client.apps()
-                            .statefulSets()
-                            .inNamespace(namespace)
-                            .withName(statefulSetName)
-                            .get();
-
-            if (statefulSet == null) {
-
-                throw new ResourceNotFoundException(
-                        ErrorCode.STATEFUL_SET_NOT_FOUND,
-                        "StatefulSet not found."
-                );
-            }
-
-            log.info(
-                    "StatefulSet '{}' fetched successfully.",
-                    statefulSetName
-            );
-
-            return statefulSetMapper.toResponse(
-                    statefulSet
-            );
-
-        } catch (ResourceNotFoundException exception) {
-
-            throw exception;
-
-        } catch (Exception exception) {
-
-            log.error(
-                    "Failed to fetch StatefulSet '{}'.",
-                    statefulSetName,
-                    exception
-            );
-
-            throw new BadRequestException(
-                    ErrorCode.STATEFUL_SET_NOT_FOUND,
-                    "Unable to fetch StatefulSet."
-            );
-        }
-    }
-
-    @Override
-    public void deleteStatefulSet(
-            UUID clusterId,
-            String namespace,
-            String statefulSetName
-    ) {
-
-        log.info(
-                "Deleting StatefulSet '{}' in namespace '{}' for cluster '{}'.",
-                statefulSetName,
-                namespace,
-                clusterId
-        );
-
-        Cluster cluster = clusterRepository.findById(clusterId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        ErrorCode.CLUSTER_NOT_FOUND,
-                        "Cluster not found."
-                ));
-
-        if (cluster.getEncryptedKubeConfig() == null ||
-                cluster.getEncryptedKubeConfig().isBlank()) {
-
-            throw new BadRequestException(
-                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
-                    "Cluster kubeconfig is not available."
-            );
-        }
-
-        try (KubernetesClient client =
-                     kubernetesClientFactory.createClient(
-                             cluster.getEncryptedKubeConfig()
-                     )) {
-
-            StatefulSet statefulSet =
-                    client.apps()
-                            .statefulSets()
-                            .inNamespace(namespace)
-                            .withName(statefulSetName)
-                            .get();
-
-            if (statefulSet == null) {
-
-                throw new ResourceNotFoundException(
-                        ErrorCode.STATEFUL_SET_NOT_FOUND,
-                        "StatefulSet not found."
-                );
-            }
-
-            client.apps()
-                    .statefulSets()
-                    .inNamespace(namespace)
-                    .withName(statefulSetName)
-                    .delete();
-
-            log.info(
-                    "StatefulSet '{}' deleted successfully.",
-                    statefulSetName
-            );
-
-        } catch (ResourceNotFoundException exception) {
-
-            throw exception;
-
-        } catch (Exception exception) {
-
-            log.error(
-                    "Failed to delete StatefulSet '{}'.",
-                    statefulSetName,
-                    exception
-            );
-
-            throw new BadRequestException(
-                    ErrorCode.STATEFUL_SET_DELETION_FAILED,
-                    "Unable to delete StatefulSet."
-            );
-        }
     }
 }
