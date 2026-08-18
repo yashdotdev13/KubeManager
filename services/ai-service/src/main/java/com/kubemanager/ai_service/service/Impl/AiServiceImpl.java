@@ -31,9 +31,7 @@ public class AiServiceImpl implements AiService {
                     exception
             );
         }
-
         try {
-
             String response = chatClient
                     .prompt()
                     .user(request.message())
@@ -46,7 +44,6 @@ public class AiServiceImpl implements AiService {
             );
 
         } catch (Exception exception) {
-
             throw new AiModelException(
                     "Failed to communicate with AI model",
                     exception
