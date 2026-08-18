@@ -1,8 +1,5 @@
 package com.kubemanager.ai_service.agent;
 
-import com.google.genai.types.ToolResponse;
-import org.springframework.ai.tool.definition.ToolDefinition;
-
 public interface AiTool {
 
 
@@ -10,5 +7,5 @@ public interface AiTool {
 
     ToolDefinition getToolDefinition();
 
-    ToolResponse execute(ToolReq)
+    ToolResponse execute(ToolRequest request);
 }
