@@ -1,6 +1,5 @@
 package com.kubemanager.ai_service.agent.tool.cluster;
 
-
 import com.kubemanager.ai_service.agent.AiTool;
 import com.kubemanager.ai_service.agent.tool.ToolDefinition;
 import com.kubemanager.ai_service.agent.tool.ToolRequest;
@@ -8,19 +7,20 @@ import com.kubemanager.ai_service.agent.tool.ToolResponse;
 import com.kubemanager.ai_service.client.ClusterServiceClient;
 import com.kubemanager.ai_service.dto.ClusterHealthResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ClusterHealthTool implements AiTool {
 
-    private static final String TOOL_NAME =
-            "cluster_health";
+    private static final String TOOL_NAME = "cluster_health";
 
     private final ClusterServiceClient clusterServiceClient;
-
 
     @Override
     public String getName() {
@@ -53,47 +53,84 @@ public class ClusterHealthTool implements AiTool {
     @Override
     public ToolResponse execute(ToolRequest request) {
 
-        Object clusterIdValue =
-                request.getArguments().get("clusterId");
+        if (request == null) {
+            return failure("Tool request cannot be null.");
+        }
 
-        if (clusterIdValue == null) {
-            return ToolResponse.builder()
-                    .success(false)
-                    .message("clusterId is required.")
-                    .build();
+        Map<String, Object> arguments = request.getArguments();
+
+        if (arguments == null || arguments.isEmpty()) {
+            return failure("Tool arguments are required.");
+        }
+
+        Object clusterIdValue = arguments.get("clusterId");
+
+        if (clusterIdValue == null
+                || clusterIdValue.toString().isBlank()) {
+
+            return failure("clusterId is required.");
+        }
+
+        UUID clusterId;
+
+        try {
+
+            clusterId = UUID.fromString(
+                    clusterIdValue.toString()
+            );
+
+        } catch (IllegalArgumentException ex) {
+
+            log.warn(
+                    "Invalid clusterId received by '{}': {}",
+                    TOOL_NAME,
+                    clusterIdValue
+            );
+
+            return failure(
+                    "Invalid clusterId. Expected a valid UUID."
+            );
         }
 
         try {
 
-            UUID clusterId =
-                    UUID.fromString(clusterIdValue.toString());
+            log.info(
+                    "Executing '{}' for clusterId={}",
+                    TOOL_NAME,
+                    clusterId
+            );
 
             ClusterHealthResponse response =
                     clusterServiceClient.healthCheck(clusterId);
 
             return ToolResponse.builder()
                     .success(true)
-                    .data(response)
                     .message(
                             "Cluster health check completed successfully."
                     )
-                    .build();
-
-        } catch (IllegalArgumentException ex) {
-            return ToolResponse.builder()
-                    .success(false)
-                    .message(
-                            "Invalid clusterId. Expected a valid UUID."
-                    )
+                    .data(response)
                     .build();
 
         } catch (Exception ex) {
-            return ToolResponse.builder()
-                    .success(false)
-                    .message(
-                            "Failed to check cluster health."
-                    )
-                    .build();
+
+            log.error(
+                    "Failed to execute '{}' for clusterId={}",
+                    TOOL_NAME,
+                    clusterId,
+                    ex
+            );
+
+            return failure(
+                    "Failed to check cluster health."
+            );
         }
+    }
+
+    private ToolResponse failure(String message) {
+
+        return ToolResponse.builder()
+                .success(false)
+                .message(message)
+                .build();
     }
 }
