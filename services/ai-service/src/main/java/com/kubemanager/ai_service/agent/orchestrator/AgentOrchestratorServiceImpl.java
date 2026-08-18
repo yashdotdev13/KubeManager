@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AgentOrchestratorServiceImpl implements AgentOrchestrator {
 
-
     private final AgentDecisionService agentDecisionService;
     private final ToolExecutor toolExecutor;
     private final AgentReasoningService agentReasoningService;
@@ -45,6 +44,16 @@ public class AgentOrchestratorServiceImpl implements AgentOrchestrator {
             ToolResponse toolResponse =
                     toolExecutor.execute(toolRequest);
 
+
+            if (!toolResponse.isSuccess()) {
+
+                return AgentResponse.builder()
+                        .message(toolResponse.getMessage())
+                        .data(toolResponse.getData())
+                        .build();
+            }
+
+
             String finalResponse =
                     agentReasoningService.generateFinalResponse(
                             request.getMessage(),
@@ -57,6 +66,7 @@ public class AgentOrchestratorServiceImpl implements AgentOrchestrator {
                     .data(toolResponse.getData())
                     .build();
         }
+
 
         return AgentResponse.builder()
                 .message(

@@ -1,21 +1,13 @@
 package com.kubemanager.ai_service.agent.model;
 
+import com.kubemanager.ai_service.agent.planner.AgentPlanStep;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.Setter;
-
-import java.util.Map;
+import java.util.List;
 
 @Getter
-@Setter
 @Builder
 public class AgentPlan {
 
-    private boolean requiresTool;
-
-    private String toolName;
-
-    private Map<String, Object> arguments;
-
-    private String reasoning;
+    private List<AgentPlanStep> steps;
 }

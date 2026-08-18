@@ -5,6 +5,5 @@ import com.kubemanager.ai_service.agent.model.AgentRequest;
 
 public interface AgentPlanner {
 
-
     AgentPlan createPlan(AgentRequest request);
 }

@@ -4,110 +4,132 @@ package com.kubemanager.ai_service.agent.planner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kubemanager.ai_service.agent.model.AgentPlan;
 import com.kubemanager.ai_service.agent.model.AgentRequest;
-import com.kubemanager.ai_service.agent.tool.ToolDefinition;
-import com.kubemanager.ai_service.agent.tool.ToolRegistry;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AgentPlannerServiceImpl implements AgentPlanner {
 
     private final ChatClient chatClient;
-    private final ToolRegistry toolRegistry;
     private final ObjectMapper objectMapper;
 
     @Override
     public AgentPlan createPlan(AgentRequest request) {
 
-        List<ToolDefinition> tools =
-                toolRegistry.getDefinitions();
-
-        String toolDefinitions;
-
-        try {
-            toolDefinitions =
-                    objectMapper.writeValueAsString(tools);
-        } catch (Exception exception) {
-            throw new IllegalStateException(
-                    "Failed to build AI tool definitions.",
-                    exception
-            );
-        }
-
         String prompt = """
-                You are the planning engine of KubeManager AI Agent.
+                You are the planning engine of KubeManager AI.
 
-                Your responsibility is to analyze the user's request
-                and decide whether a tool must be executed.
+                Your responsibility is to create an execution plan
+                for the user's Kubernetes-related request.
 
-                Available tools:
-                %s
+                AVAILABLE TOOLS:
 
-                User request:
-                %s
+                1. cluster_health
 
-                Rules:
+                Description:
+                Checks the health status of a Kubernetes cluster.
 
-                1. Use a tool when the request requires real
-                   Kubernetes or KubeManager data.
+                Input:
+                clusterId - UUID of the Kubernetes cluster.
 
-                2. Do not use a tool for general Kubernetes questions.
+                PLAN FORMAT:
 
-                3. If a tool is required, select exactly one tool.
+                Return ONLY valid JSON.
 
-                4. Extract all required arguments from the user's request.
-
-                5. If required information is missing, do not invent it.
-
-                6. Return ONLY valid JSON.
-
-                Expected JSON format:
+                Example:
 
                 {
-                  "requiresTool": true,
-                  "toolName": "cluster_health",
-                  "arguments": {
-                    "clusterId": "uuid"
-                  },
-                  "reasoning": "short explanation"
+                  "steps": [
+                    {
+                      "step": 1,
+                      "type": "TOOL_CALL",
+                      "toolName": "cluster_health",
+                      "arguments": {
+                        "clusterId": "UUID"
+                      },
+                      "description": "Check the health of the cluster"
+                    }
+                  ]
                 }
 
-                For requests that do not require a tool:
+                RULES:
 
-                {
-                  "requiresTool": false,
-                  "toolName": null,
-                  "arguments": {},
-                  "reasoning": "short explanation"
-                }
-                """.formatted(
-                toolDefinitions,
-                request.getMessage()
-        );
+                - Return ONLY JSON.
+                - Do not return markdown.
+                - Do not invent tool names.
+                - Do not invent cluster IDs.
+                - Only use available tools.
+                - Use TOOL_CALL when a tool is required.
+                - If the request does not require a tool, return an empty plan.
+                - Keep the plan minimal.
+                - Do not create unnecessary steps.
+
+                USER REQUEST:
+
+                %s
+                """.formatted(request.getMessage());
 
         try {
 
-            String response = chatClient
+            String rawResponse = chatClient
                     .prompt()
                     .user(prompt)
                     .call()
                     .content();
 
+            if (rawResponse == null || rawResponse.isBlank()) {
+                throw new IllegalStateException(
+                        "AI planner returned an empty response"
+                );
+            }
+
+            String jsonResponse = cleanJsonResponse(rawResponse);
+
+            log.debug(
+                    "AI generated execution plan: {}",
+                    jsonResponse
+            );
+
             return objectMapper.readValue(
-                    response,
+                    jsonResponse,
                     AgentPlan.class
             );
 
         } catch (Exception exception) {
 
+            log.error(
+                    "Failed to generate execution plan",
+                    exception
+            );
+
             throw new IllegalStateException(
-                    "Failed to create agent plan.",
+                    "Failed to generate agent execution plan",
                     exception
             );
         }
+    }
+
+    private String cleanJsonResponse(String response) {
+
+        String cleaned = response.trim();
+
+        if (cleaned.startsWith("```json")) {
+            cleaned = cleaned.substring(7).trim();
+        } else if (cleaned.startsWith("```")) {
+            cleaned = cleaned.substring(3).trim();
+        }
+
+        if (cleaned.endsWith("```")) {
+            cleaned = cleaned.substring(
+                    0,
+                    cleaned.length() - 3
+            ).trim();
+        }
+
+        return cleaned;
     }
 }
