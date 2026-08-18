@@ -1,80 +1,38 @@
 package com.kubemanager.ai_service.agent.orchestrator;
 
-import com.kubemanager.ai_service.agent.chat.AiChatService;
-import com.kubemanager.ai_service.agent.model.AgentPlan;
+
+import com.kubemanager.ai_service.agent.decision.AgentDecision;
+import com.kubemanager.ai_service.agent.decision.AgentDecisionService;
+import com.kubemanager.ai_service.agent.decision.DecisionType;
 import com.kubemanager.ai_service.agent.model.AgentRequest;
 import com.kubemanager.ai_service.agent.model.AgentResponse;
-import com.kubemanager.ai_service.agent.planner.AgentPlanner;
-import com.kubemanager.ai_service.agent.tool.ToolExecutor;
-import com.kubemanager.ai_service.agent.tool.ToolRequest;
-import com.kubemanager.ai_service.agent.tool.ToolResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-
 @Service
 @RequiredArgsConstructor
-public class AgentOrchestratorServiceImpl implements AgentOrchestrator{
+public class AgentOrchestratorServiceImpl implements AgentOrchestrator {
 
-
-    private final AiChatService aiChatService;
-    private final AgentPlanner agentPlanner;
-    private final ToolExecutor toolExecutor;
-
+    private final AgentDecisionService agentDecisionService;
 
     @Override
     public AgentResponse process(AgentRequest request) {
 
+        AgentDecision decision =
+                agentDecisionService.decide(request);
 
-        AgentPlan plan =
-                agentPlanner.createPlan(request);
-
-        if (!plan.isRequiresTool()) {
-
-            String response =
-                    aiChatService.chat(request.getMessage());
+        if (decision.getType() == DecisionType.CHAT) {
 
             return AgentResponse.builder()
-                    .message(response)
+                    .message(decision.getResponse())
                     .build();
         }
 
-        ToolRequest toolRequest =
-                ToolRequest.builder()
-                        .toolName(plan.getToolName())
-                        .arguments(plan.getArguments())
-                        .build();
-
-        ToolResponse toolResponse =
-                toolExecutor.execute(toolRequest);
-
-        String finalPrompt = """
-                You are KubeManager AI Agent.
-
-                User request:
-                %s
-
-                Tool executed:
-                %s
-
-                Tool result:
-                %s
-
-                Provide a clear and useful answer to the user.
-
-                Do not mention internal implementation details
-                unless necessary.
-                """.formatted(
-                request.getMessage(),
-                plan.getToolName(),
-                toolResponse
-        );
-
-        String finalResponse =
-                aiChatService.chat(finalPrompt);
-
         return AgentResponse.builder()
-                .message(finalResponse)
+                .message(
+                        "Agent decided to execute tool: "
+                                + decision.getToolName()
+                )
                 .build();
     }
 }
