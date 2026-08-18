@@ -1,4 +1,4 @@
-package com.kubemanager.ai_service.agent;
+package com.kubemanager.ai_service.agent.tool;
 
 import lombok.Builder;
 import lombok.Getter;
