@@ -33,7 +33,28 @@ public class ClusterServiceClient {
                                 + "/api/v1/clusters/{clusterId}/health-check",
                         clusterId
                 )
-                .headers(headers -> addUserContextHeaders(headers, context))
+                .headers(headers ->
+                        addUserContextHeaders(headers, context)
+                )
+                .retrieve()
+                .body(ClusterHealthResponse.class);
+    }
+
+    public ClusterHealthResponse getClusterInfo(UUID clusterId) {
+
+        UserContext context =
+                UserContextHolder.getRequiredContext();
+
+        return restClient
+                .get()
+                .uri(
+                        clusterServiceUrl
+                                + "/api/v1/clusters/{clusterId}",
+                        clusterId
+                )
+                .headers(headers ->
+                        addUserContextHeaders(headers, context)
+                )
                 .retrieve()
                 .body(ClusterHealthResponse.class);
     }
