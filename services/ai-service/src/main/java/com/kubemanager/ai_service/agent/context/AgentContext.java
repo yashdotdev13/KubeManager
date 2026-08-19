@@ -9,6 +9,8 @@ import java.util.Map;
 @Builder
 public class AgentContext {
 
+    private String userId;
+
     private String lastUserMessage;
 
     private String lastToolName;

@@ -1,10 +1,11 @@
 package com.kubemanager.ai_service.agent.context;
 
-public interface  AgentContextService {
 
-    AgentContext getContext();
+public interface AgentContextService {
 
-    void updateContext(AgentContext context);
+    AgentContext getContext(String userId);
 
-    void clearContext();
+    void updateContext(String userId, AgentContext context);
+
+    void clearContext(String userId);
 }
