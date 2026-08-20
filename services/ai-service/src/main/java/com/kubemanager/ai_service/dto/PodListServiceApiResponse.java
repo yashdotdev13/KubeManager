@@ -1,6 +1,5 @@
 package com.kubemanager.ai_service.dto;
 
-
 import lombok.Data;
 
 import java.util.List;
@@ -12,5 +11,5 @@ public class PodListServiceApiResponse {
 
     private String message;
 
-    private List<PodSummaryResponse> podSummary;
+    private List<PodSummaryResponse> data;
 }
