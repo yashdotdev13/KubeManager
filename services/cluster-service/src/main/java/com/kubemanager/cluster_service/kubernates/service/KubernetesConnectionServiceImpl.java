@@ -179,6 +179,46 @@ public class KubernetesConnectionServiceImpl
                 .toList();
     }
 
+    @Override
+    public List<NodeResponse> getNodes(String kubeConfigContent) {
+
+        try (
+                KubernetesClient client =
+                        kubernetesClientFactory.createClient(kubeConfigContent)
+        ) {
+
+            log.info("Fetching Kubernetes nodes.");
+
+            NodeList nodeList =
+                    client.nodes().list();
+
+            List<NodeResponse> nodes =
+                    nodeList.getItems()
+                            .stream()
+                            .map(this::mapNode)
+                            .toList();
+
+            log.info(
+                    "Successfully fetched {} Kubernetes nodes.",
+                    nodes.size()
+            );
+
+            return nodes;
+
+        } catch (Exception exception) {
+
+            log.error(
+                    "Failed to fetch Kubernetes nodes.",
+                    exception
+            );
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Unable to retrieve Kubernetes nodes."
+            );
+        }
+    }
+
     private PlatformType detectPlatform(
             KubernetesClient client
     ) {

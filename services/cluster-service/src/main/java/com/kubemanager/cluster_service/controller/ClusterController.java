@@ -4,6 +4,7 @@ import com.kubemanager.cluster_service.dto.request.CreateClusterRequest;
 import com.kubemanager.cluster_service.dto.request.UpdateClusterRequest;
 import com.kubemanager.cluster_service.dto.response.ClusterResponse;
 import com.kubemanager.cluster_service.dto.response.ClusterSummaryResponse;
+import com.kubemanager.cluster_service.dto.response.NodeResponse;
 import com.kubemanager.cluster_service.service.ClusterService;
 import com.kubemanager.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -105,6 +106,18 @@ public class ClusterController {
                         clusterId,
                         kubeConfig
                 )
+        );
+    }
+
+
+    @GetMapping("/{clusterId}/nodes")
+    public ApiResponse<List<NodeResponse>> getNodes(
+            @PathVariable UUID clusterId
+    ) {
+
+        return ApiResponse.success(
+                "Nodes fetched successfully.",
+                clusterService.getNodes(clusterId)
         );
     }
 }

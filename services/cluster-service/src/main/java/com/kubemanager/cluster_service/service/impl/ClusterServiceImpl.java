@@ -7,6 +7,7 @@ import com.kubemanager.cluster_service.dto.request.CreateClusterRequest;
 import com.kubemanager.cluster_service.dto.request.UpdateClusterRequest;
 import com.kubemanager.cluster_service.dto.response.ClusterResponse;
 import com.kubemanager.cluster_service.dto.response.ClusterSummaryResponse;
+import com.kubemanager.cluster_service.dto.response.NodeResponse;
 import com.kubemanager.cluster_service.entity.Cluster;
 import com.kubemanager.cluster_service.kubernates.metadata.ClusterMetadata;
 import com.kubemanager.cluster_service.kubernates.service.KubernetesConnectionService;
@@ -262,5 +263,57 @@ public class ClusterServiceImpl implements ClusterService {
         );
 
         return clusterMapper.toResponse(updatedCluster);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<NodeResponse> getNodes(UUID clusterId) {
+
+        UserContext userContext =
+                UserContextHolder.getRequiredContext();
+
+        UUID ownerId =
+                userContext.getUserId();
+
+        log.info(
+                "Fetching nodes for cluster '{}' and user '{}'",
+                clusterId,
+                ownerId
+        );
+
+        Cluster cluster =
+                clusterRepository
+                        .findByIdAndOwnerId(
+                                clusterId,
+                                ownerId
+                        )
+                        .orElseThrow(() -> {
+
+                            log.warn(
+                                    "Cluster '{}' not found for user '{}'",
+                                    clusterId,
+                                    ownerId
+                            );
+
+                            return new ResourceNotFoundException(
+                                    ErrorCode.CLUSTER_NOT_FOUND,
+                                    "Cluster not found."
+                            );
+                        });
+
+        String kubeConfig =
+                cluster.getEncryptedKubeConfig();
+
+        if (kubeConfig == null || kubeConfig.isBlank()) {
+
+            throw new BadRequestException(
+                    ErrorCode.INVALID_CLUSTER_CONFIGURATION,
+                    "Cluster is not connected."
+            );
+        }
+
+        return kubernetesConnectionService.getNodes(
+                kubeConfig
+        );
     }
 }

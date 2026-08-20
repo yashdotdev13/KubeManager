@@ -27,4 +27,7 @@ public interface KubernetesConnectionService {
 
     List<NodeResponse> getNodes(KubernetesClient client);
 
+
+    List<NodeResponse> getNodes(String kubeConfigContent);
+
 }

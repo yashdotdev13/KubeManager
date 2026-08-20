@@ -4,6 +4,7 @@ import com.kubemanager.cluster_service.dto.request.CreateClusterRequest;
 import com.kubemanager.cluster_service.dto.request.UpdateClusterRequest;
 import com.kubemanager.cluster_service.dto.response.ClusterResponse;
 import com.kubemanager.cluster_service.dto.response.ClusterSummaryResponse;
+import com.kubemanager.cluster_service.dto.response.NodeResponse;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -25,4 +26,7 @@ public interface ClusterService {
     void deleteCluster(UUID clusterId);
 
     ClusterResponse connectCluster(UUID clusterId, MultipartFile kubeConfig);
+
+
+    List<NodeResponse> getNodes(UUID clusterId);
 }
