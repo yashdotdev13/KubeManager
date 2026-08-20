@@ -3,6 +3,9 @@ package com.kubemanager.ai_service.client;
 import com.kubemanager.ai_service.auth.HeaderConstants;
 import com.kubemanager.ai_service.auth.UserContext;
 import com.kubemanager.ai_service.auth.UserContextHolder;
+import com.kubemanager.ai_service.dto.DeploymentInfoServiceApiResponse;
+import com.kubemanager.ai_service.dto.DeploymentScaleRequest;
+import com.kubemanager.ai_service.dto.DeploymentScaleServiceApiResponse;
 import com.kubemanager.ai_service.dto.DeploymentServiceApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -105,6 +108,49 @@ public class DeploymentServiceClient {
         return response;
     }
 
+
+    public DeploymentInfoServiceApiResponse getDeployment(
+            UUID clusterId,
+            String namespace,
+            String deploymentName
+    ) {
+
+        UserContext context =
+                UserContextHolder.getRequiredContext();
+
+        DeploymentInfoServiceApiResponse response =
+                restClient
+                        .get()
+                        .uri(
+                                clusterServiceUrl
+                                        + "/api/v1/clusters/{clusterId}/deployments/{namespace}/{deploymentName}",
+                                clusterId,
+                                namespace,
+                                deploymentName
+                        )
+                        .headers(headers ->
+                                addUserContextHeaders(
+                                        headers,
+                                        context
+                                )
+                        )
+                        .retrieve()
+                        .body(DeploymentInfoServiceApiResponse.class);
+
+        if (response == null) {
+            throw new IllegalStateException(
+                    "Empty response received from cluster-service."
+            );
+        }
+
+        if (!response.isSuccess()) {
+            throw new IllegalStateException(
+                    response.getMessage()
+            );
+        }
+
+        return response;
+    }
     private void addUserContextHeaders(
             HttpHeaders headers,
             UserContext context
@@ -153,6 +199,59 @@ public class DeploymentServiceClient {
                 HeaderConstants.CORRELATION_ID,
                 context.getCorrelationId()
         );
+    }
+
+
+    public DeploymentScaleServiceApiResponse scaleDeployment(
+            UUID clusterId,
+            String namespace,
+            String deploymentName,
+            Integer replicas
+    ) {
+
+        UserContext context =
+                UserContextHolder.getRequiredContext();
+
+        DeploymentScaleRequest request =
+                DeploymentScaleRequest.builder()
+                        .replicas(replicas)
+                        .build();
+
+        DeploymentScaleServiceApiResponse response =
+                restClient
+                        .put()
+                        .uri(
+                                clusterServiceUrl
+                                        + "/api/v1/clusters/{clusterId}/deployments/{namespace}/{deploymentName}/scale",
+                                clusterId,
+                                namespace,
+                                deploymentName
+                        )
+                        .headers(headers ->
+                                addUserContextHeaders(
+                                        headers,
+                                        context
+                                )
+                        )
+                        .body(request)
+                        .retrieve()
+                        .body(DeploymentScaleServiceApiResponse.class);
+
+        if (response == null) {
+
+            throw new IllegalStateException(
+                    "Empty response received from cluster-service."
+            );
+        }
+
+        if (!response.isSuccess()) {
+
+            throw new IllegalStateException(
+                    response.getMessage()
+            );
+        }
+
+        return response;
     }
 
     private void addHeader(
