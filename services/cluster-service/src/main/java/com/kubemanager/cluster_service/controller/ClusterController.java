@@ -108,16 +108,4 @@ public class ClusterController {
                 )
         );
     }
-
-
-    @GetMapping("/{clusterId}/nodes")
-    public ApiResponse<List<NodeResponse>> getNodes(
-            @PathVariable UUID clusterId
-    ) {
-
-        return ApiResponse.success(
-                "Nodes fetched successfully.",
-                clusterService.getNodes(clusterId)
-        );
-    }
 }
