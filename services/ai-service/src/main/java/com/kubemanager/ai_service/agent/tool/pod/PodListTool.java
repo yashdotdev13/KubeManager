@@ -4,8 +4,8 @@ import com.kubemanager.ai_service.agent.AiTool;
 import com.kubemanager.ai_service.agent.tool.ToolDefinition;
 import com.kubemanager.ai_service.agent.tool.ToolRequest;
 import com.kubemanager.ai_service.agent.tool.ToolResponse;
-import com.kubemanager.ai_service.client.ClusterServiceClient;
-import com.kubemanager.ai_service.dto.PodListServiceApiResponse;
+import com.kubemanager.ai_service.client.PodServiceClient;
+import com.kubemanager.ai_service.dto.PodServiceApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -20,7 +20,7 @@ public class PodListTool implements AiTool {
 
     private static final String TOOL_NAME = "pod_list";
 
-    private final ClusterServiceClient clusterServiceClient;
+    private final PodServiceClient podServiceClient;
 
     @Override
     public String getName() {
@@ -33,9 +33,8 @@ public class PodListTool implements AiTool {
         return ToolDefinition.builder()
                 .name(TOOL_NAME)
                 .description(
-                        "Lists Kubernetes pods in a cluster. " +
-                                "Can optionally filter pods by namespace. " +
-                                "If namespace is not provided, pods from all namespaces are returned."
+                        "Lists Kubernetes pods in a specific cluster and namespace. " +
+                                "Returns pod name, namespace, status, node, pod IP and restart count."
                 )
                 .inputSchema("""
                         {
@@ -47,10 +46,10 @@ public class PodListTool implements AiTool {
                             },
                             "namespace": {
                               "type": "string",
-                              "description": "Optional Kubernetes namespace. If omitted, pods from all namespaces are returned."
+                              "description": "Kubernetes namespace whose pods should be listed"
                             }
                           },
-                          "required": ["clusterId"]
+                          "required": ["clusterId", "namespace"]
                         }
                         """)
                 .build();
@@ -60,21 +59,40 @@ public class PodListTool implements AiTool {
     public ToolResponse execute(ToolRequest request) {
 
         if (request == null) {
-            return failure("Tool request cannot be null.");
+            return failure(
+                    "Tool request cannot be null."
+            );
         }
 
-        Map<String, Object> arguments = request.getArguments();
+        Map<String, Object> arguments =
+                request.getArguments();
 
         if (arguments == null || arguments.isEmpty()) {
-            return failure("Tool arguments are required.");
+            return failure(
+                    "Tool arguments are required."
+            );
         }
 
-        Object clusterIdValue = arguments.get("clusterId");
+        Object clusterIdValue =
+                arguments.get("clusterId");
+
+        Object namespaceValue =
+                arguments.get("namespace");
 
         if (clusterIdValue == null
                 || clusterIdValue.toString().isBlank()) {
 
-            return failure("clusterId is required.");
+            return failure(
+                    "clusterId is required."
+            );
+        }
+
+        if (namespaceValue == null
+                || namespaceValue.toString().isBlank()) {
+
+            return failure(
+                    "namespace is required."
+            );
         }
 
         UUID clusterId;
@@ -85,7 +103,7 @@ public class PodListTool implements AiTool {
                     clusterIdValue.toString()
             );
 
-        } catch (IllegalArgumentException ex) {
+        } catch (IllegalArgumentException exception) {
 
             log.warn(
                     "Invalid clusterId received by '{}': {}",
@@ -98,15 +116,8 @@ public class PodListTool implements AiTool {
             );
         }
 
-        Object namespaceValue = arguments.get("namespace");
-
-        String namespace = null;
-
-        if (namespaceValue != null
-                && !namespaceValue.toString().isBlank()) {
-
-            namespace = namespaceValue.toString().trim();
-        }
+        String namespace =
+                namespaceValue.toString().trim();
 
         try {
 
@@ -117,8 +128,8 @@ public class PodListTool implements AiTool {
                     namespace
             );
 
-            PodListServiceApiResponse response =
-                    clusterServiceClient.getPods(
+            PodServiceApiResponse response =
+                    podServiceClient.getPods(
                             clusterId,
                             namespace
                     );
@@ -131,14 +142,14 @@ public class PodListTool implements AiTool {
                     .data(response.getData())
                     .build();
 
-        } catch (Exception ex) {
+        } catch (Exception exception) {
 
             log.error(
                     "Failed to execute '{}' for clusterId={}, namespace={}",
                     TOOL_NAME,
                     clusterId,
                     namespace,
-                    ex
+                    exception
             );
 
             return failure(

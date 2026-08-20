@@ -1,10 +1,12 @@
 package com.kubemanager.ai_service.client;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.kubemanager.ai_service.auth.HeaderConstants;
 import com.kubemanager.ai_service.auth.UserContext;
 import com.kubemanager.ai_service.auth.UserContextHolder;
-import com.kubemanager.ai_service.dto.*;
+import com.kubemanager.ai_service.dto.PodDeleteServiceApiResponse;
+import com.kubemanager.ai_service.dto.PodInfoServiceApiResponse;
+import com.kubemanager.ai_service.dto.PodServiceApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -15,49 +17,14 @@ import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
-public class ClusterServiceClient {
+public class PodServiceClient {
 
     private final RestClient restClient;
-    private final ObjectMapper objectMapper;
 
     @Value("${kubemanager.services.cluster-service.url}")
     private String clusterServiceUrl;
 
-    public ClusterHealthResponse healthCheck(UUID clusterId) {
-
-        UserContext context =
-                UserContextHolder.getRequiredContext();
-
-        ClusterServiceApiResponse response =
-                restClient
-                        .post()
-                        .uri(
-                                clusterServiceUrl
-                                        + "/api/v1/clusters/{clusterId}/health-check",
-                                clusterId
-                        )
-                        .headers(headers ->
-                                addUserContextHeaders(headers, context)
-                        )
-                        .retrieve()
-                        .body(ClusterServiceApiResponse.class);
-
-        if (response == null) {
-            throw new IllegalStateException(
-                    "Empty response received from cluster-service."
-            );
-        }
-
-        if (!response.isSuccess()) {
-            throw new IllegalStateException(
-                    response.getMessage()
-            );
-        }
-
-        return response.getData();
-    }
-
-    public NamespaceResponse getNamespace(
+    public PodServiceApiResponse getPods(
             UUID clusterId,
             String namespace
     ) {
@@ -65,14 +32,20 @@ public class ClusterServiceClient {
         UserContext context =
                 UserContextHolder.getRequiredContext();
 
-        NamespaceInfoServiceApiResponse response =
+        PodServiceApiResponse response =
                 restClient
                         .get()
-                        .uri(
-                                clusterServiceUrl
-                                        + "/api/v1/clusters/{clusterId}/namespaces/{namespace}",
-                                clusterId,
-                                namespace
+                        .uri(uriBuilder ->
+                                uriBuilder
+                                        .path(
+                                                clusterServiceUrl
+                                                        + "/api/v1/clusters/{clusterId}/pods"
+                                        )
+                                        .queryParam(
+                                                "namespace",
+                                                namespace
+                                        )
+                                        .build(clusterId)
                         )
                         .headers(headers ->
                                 addUserContextHeaders(
@@ -81,7 +54,7 @@ public class ClusterServiceClient {
                                 )
                         )
                         .retrieve()
-                        .body(NamespaceInfoServiceApiResponse.class);
+                        .body(PodServiceApiResponse.class);
 
         if (response == null) {
             throw new IllegalStateException(
@@ -95,7 +68,50 @@ public class ClusterServiceClient {
             );
         }
 
-        return response.getData();
+        return response;
+    }
+
+    public PodInfoServiceApiResponse getPod(
+            UUID clusterId,
+            String namespace,
+            String podName
+    ) {
+
+        UserContext context =
+                UserContextHolder.getRequiredContext();
+
+        PodInfoServiceApiResponse response =
+                restClient
+                        .get()
+                        .uri(
+                                clusterServiceUrl
+                                        + "/api/v1/clusters/{clusterId}/pods/{namespace}/{podName}",
+                                clusterId,
+                                namespace,
+                                podName
+                        )
+                        .headers(headers ->
+                                addUserContextHeaders(
+                                        headers,
+                                        context
+                                )
+                        )
+                        .retrieve()
+                        .body(PodInfoServiceApiResponse.class);
+
+        if (response == null) {
+            throw new IllegalStateException(
+                    "Empty response received from cluster-service."
+            );
+        }
+
+        if (!response.isSuccess()) {
+            throw new IllegalStateException(
+                    response.getMessage()
+            );
+        }
+
+        return response;
     }
 
     private void addUserContextHeaders(
@@ -148,70 +164,25 @@ public class ClusterServiceClient {
         );
     }
 
-    public NamespaceApiResponse createNamespace(
+
+    public void deletePod(
             UUID clusterId,
-            String name
+            String namespace,
+            String podName
     ) {
 
         UserContext context =
                 UserContextHolder.getRequiredContext();
 
-        CreateNamespaceRequest request =
-                CreateNamespaceRequest.builder()
-                        .name(name)
-                        .build();
-
-        NamespaceApiResponse response =
-                restClient
-                        .post()
-                        .uri(
-                                clusterServiceUrl
-                                        + "/api/v1/clusters/{clusterId}/namespaces",
-                                clusterId
-                        )
-                        .headers(headers ->
-                                addUserContextHeaders(
-                                        headers,
-                                        context
-                                )
-                        )
-                        .body(request)
-                        .retrieve()
-                        .body(NamespaceApiResponse.class);
-
-        if (response == null) {
-
-            throw new IllegalStateException(
-                    "Empty response received from cluster-service."
-            );
-        }
-
-        if (!response.isSuccess()) {
-
-            throw new IllegalStateException(
-                    response.getMessage()
-            );
-        }
-
-        return response;
-    }
-
-    public void deleteNamespace(
-            UUID clusterId,
-            String namespace
-    ) {
-
-        UserContext context =
-                UserContextHolder.getRequiredContext();
-
-        ClusterServiceApiResponse response =
+        PodDeleteServiceApiResponse response =
                 restClient
                         .delete()
                         .uri(
                                 clusterServiceUrl
-                                        + "/api/v1/clusters/{clusterId}/namespaces/{namespace}",
+                                        + "/api/v1/clusters/{clusterId}/pods/{namespace}/{podName}",
                                 clusterId,
-                                namespace
+                                namespace,
+                                podName
                         )
                         .headers(headers ->
                                 addUserContextHeaders(
@@ -220,7 +191,7 @@ public class ClusterServiceClient {
                                 )
                         )
                         .retrieve()
-                        .body(ClusterServiceApiResponse.class);
+                        .body(PodDeleteServiceApiResponse.class);
 
         if (response == null) {
 
@@ -236,6 +207,7 @@ public class ClusterServiceClient {
             );
         }
     }
+
     private void addHeader(
             HttpHeaders headers,
             String name,

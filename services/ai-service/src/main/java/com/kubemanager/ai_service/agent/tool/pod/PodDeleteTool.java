@@ -5,7 +5,6 @@ import com.kubemanager.ai_service.agent.tool.ToolDefinition;
 import com.kubemanager.ai_service.agent.tool.ToolRequest;
 import com.kubemanager.ai_service.agent.tool.ToolResponse;
 import com.kubemanager.ai_service.client.PodServiceClient;
-import com.kubemanager.ai_service.dto.PodInfoServiceApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -16,9 +15,9 @@ import java.util.UUID;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class PodInfoTool implements AiTool {
+public class PodDeleteTool implements AiTool {
 
-    private static final String TOOL_NAME = "pod_info";
+    private static final String TOOL_NAME = "pod_delete";
 
     private final PodServiceClient podServiceClient;
 
@@ -33,9 +32,8 @@ public class PodInfoTool implements AiTool {
         return ToolDefinition.builder()
                 .name(TOOL_NAME)
                 .description(
-                        "Retrieves detailed information about a specific Kubernetes pod, " +
-                                "including its name, namespace, status, node, pod IP, host IP, " +
-                                "QoS class, service account, start time, labels and annotations."
+                        "Deletes a specific Kubernetes pod from a namespace. " +
+                                "Use this tool only when the user explicitly requests the pod to be deleted."
                 )
                 .inputSchema("""
                         {
@@ -51,7 +49,7 @@ public class PodInfoTool implements AiTool {
                             },
                             "podName": {
                               "type": "string",
-                              "description": "Name of the Kubernetes pod"
+                              "description": "Name of the Kubernetes pod to delete"
                             }
                           },
                           "required": ["clusterId", "namespace", "podName"]
@@ -148,19 +146,24 @@ public class PodInfoTool implements AiTool {
                     podName
             );
 
-            PodInfoServiceApiResponse response =
-                    podServiceClient.getPod(
-                            clusterId,
-                            namespace,
-                            podName
-                    );
+            podServiceClient.deletePod(
+                    clusterId,
+                    namespace,
+                    podName
+            );
 
             return ToolResponse.builder()
                     .success(true)
                     .message(
-                            "Pod information retrieved successfully."
+                            "Pod deleted successfully."
                     )
-                    .data(response.getData())
+                    .data(
+                            Map.of(
+                                    "clusterId", clusterId,
+                                    "namespace", namespace,
+                                    "podName", podName
+                            )
+                    )
                     .build();
 
         } catch (Exception exception) {
@@ -175,7 +178,7 @@ public class PodInfoTool implements AiTool {
             );
 
             return failure(
-                    "Failed to retrieve pod information."
+                    "Failed to delete pod."
             );
         }
     }
