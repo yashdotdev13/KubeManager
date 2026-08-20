@@ -3,7 +3,7 @@ package com.kubemanager.ai_service.client;
 import com.kubemanager.ai_service.auth.HeaderConstants;
 import com.kubemanager.ai_service.auth.UserContext;
 import com.kubemanager.ai_service.auth.UserContextHolder;
-import com.kubemanager.ai_service.dto.NamespaceServiceApiResponse;
+import com.kubemanager.ai_service.dto.DeploymentServiceApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -14,24 +14,26 @@ import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
-public class NamespaceServiceClient {
+public class DeploymentServiceClient {
 
     private final RestClient restClient;
 
     @Value("${kubemanager.services.cluster-service.url}")
     private String clusterServiceUrl;
 
-    public NamespaceServiceApiResponse getNamespaces(UUID clusterId) {
+    public DeploymentServiceApiResponse getDeployments(
+            UUID clusterId
+    ) {
 
         UserContext context =
                 UserContextHolder.getRequiredContext();
 
-        NamespaceServiceApiResponse response =
+        DeploymentServiceApiResponse response =
                 restClient
                         .get()
                         .uri(
                                 clusterServiceUrl
-                                        + "/api/v1/clusters/{clusterId}/namespaces",
+                                        + "/api/v1/clusters/{clusterId}/deployments",
                                 clusterId
                         )
                         .headers(headers ->
@@ -41,14 +43,17 @@ public class NamespaceServiceClient {
                                 )
                         )
                         .retrieve()
-                        .body(NamespaceServiceApiResponse.class);
+                        .body(DeploymentServiceApiResponse.class);
 
         if (response == null) {
+
             throw new IllegalStateException(
                     "Empty response received from cluster-service."
             );
         }
+
         if (!response.isSuccess()) {
+
             throw new IllegalStateException(
                     response.getMessage()
             );
@@ -114,12 +119,11 @@ public class NamespaceServiceClient {
     ) {
 
         if (value != null) {
+
             headers.set(
                     name,
                     value.toString()
             );
         }
     }
-
-
 }
