@@ -62,6 +62,49 @@ public class DeploymentServiceClient {
         return response;
     }
 
+    public DeploymentServiceApiResponse getDeploymentsByNamespace(
+            UUID clusterId,
+            String namespace
+    ) {
+
+        UserContext context =
+                UserContextHolder.getRequiredContext();
+
+        DeploymentServiceApiResponse response =
+                restClient
+                        .get()
+                        .uri(
+                                clusterServiceUrl
+                                        + "/api/v1/clusters/{clusterId}/deployments/{namespace}",
+                                clusterId,
+                                namespace
+                        )
+                        .headers(headers ->
+                                addUserContextHeaders(
+                                        headers,
+                                        context
+                                )
+                        )
+                        .retrieve()
+                        .body(DeploymentServiceApiResponse.class);
+
+        if (response == null) {
+
+            throw new IllegalStateException(
+                    "Empty response received from cluster-service."
+            );
+        }
+
+        if (!response.isSuccess()) {
+
+            throw new IllegalStateException(
+                    response.getMessage()
+            );
+        }
+
+        return response;
+    }
+
     private void addUserContextHeaders(
             HttpHeaders headers,
             UserContext context
