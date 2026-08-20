@@ -48,7 +48,6 @@ public class NamespaceServiceClient {
                     "Empty response received from cluster-service."
             );
         }
-
         if (!response.isSuccess()) {
             throw new IllegalStateException(
                     response.getMessage()

@@ -237,6 +237,101 @@ public class ClusterServiceClient {
         }
     }
 
+
+    public PodListServiceApiResponse getPods(
+            UUID clusterId,
+            String namespace
+    ) {
+
+        UserContext context =
+                UserContextHolder.getRequiredContext();
+
+        PodListServiceApiResponse response =
+                restClient
+                        .get()
+                        .uri(uriBuilder -> {
+
+                            var builder = uriBuilder
+                                    .path(
+                                            clusterServiceUrl
+                                                    + "/api/v1/clusters/{clusterId}/pods"
+                                    )
+                                    .queryParam("namespace", namespace);
+
+                            return builder.build(clusterId);
+                        })
+                        .headers(headers ->
+                                addUserContextHeaders(
+                                        headers,
+                                        context
+                                )
+                        )
+                        .retrieve()
+                        .body(PodListServiceApiResponse.class);
+
+        if (response == null) {
+
+            throw new IllegalStateException(
+                    "Empty response received from cluster-service."
+            );
+        }
+
+        if (!response.isSuccess()) {
+
+            throw new IllegalStateException(
+                    response.getMessage()
+            );
+        }
+
+        return response;
+    }
+
+
+    public PodInfoServiceApiResponse getPod(
+            UUID clusterId,
+            String namespace,
+            String podName
+    ) {
+
+        UserContext context =
+                UserContextHolder.getRequiredContext();
+
+        PodInfoServiceApiResponse response =
+                restClient
+                        .get()
+                        .uri(
+                                clusterServiceUrl
+                                        + "/api/v1/clusters/{clusterId}/pods/{namespace}/{podName}",
+                                clusterId,
+                                namespace,
+                                podName
+                        )
+                        .headers(headers ->
+                                addUserContextHeaders(
+                                        headers,
+                                        context
+                                )
+                        )
+                        .retrieve()
+                        .body(PodInfoServiceApiResponse.class);
+
+        if (response == null) {
+
+            throw new IllegalStateException(
+                    "Empty response received from cluster-service."
+            );
+        }
+
+        if (!response.isSuccess()) {
+
+            throw new IllegalStateException(
+                    response.getMessage()
+            );
+        }
+
+        return response;
+    }
+
     private void addHeader(
             HttpHeaders headers,
             String name,
