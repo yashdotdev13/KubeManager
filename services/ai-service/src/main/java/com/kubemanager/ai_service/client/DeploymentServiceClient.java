@@ -254,6 +254,51 @@ public class DeploymentServiceClient {
         return response;
     }
 
+    public DeploymentServiceApiResponse restartDeployment(
+            UUID clusterId,
+            String namespace,
+            String deploymentName
+    ) {
+
+        UserContext context =
+                UserContextHolder.getRequiredContext();
+
+        DeploymentServiceApiResponse response =
+                restClient
+                        .post()
+                        .uri(
+                                clusterServiceUrl
+                                        + "/api/v1/clusters/{clusterId}/deployments/{namespace}/{deploymentName}/restart",
+                                clusterId,
+                                namespace,
+                                deploymentName
+                        )
+                        .headers(headers ->
+                                addUserContextHeaders(
+                                        headers,
+                                        context
+                                )
+                        )
+                        .retrieve()
+                        .body(DeploymentServiceApiResponse.class);
+
+        if (response == null) {
+
+            throw new IllegalStateException(
+                    "Empty response received from cluster-service."
+            );
+        }
+
+        if (!response.isSuccess()) {
+
+            throw new IllegalStateException(
+                    response.getMessage()
+            );
+        }
+
+        return response;
+    }
+
     private void addHeader(
             HttpHeaders headers,
             String name,
