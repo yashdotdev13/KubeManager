@@ -4,8 +4,11 @@ import com.kubemanager.ai_service.auth.HeaderConstants;
 import com.kubemanager.ai_service.auth.UserContext;
 import com.kubemanager.ai_service.auth.UserContextHolder;
 import com.kubemanager.ai_service.dto.ClusterHealthResponse;
+import com.kubemanager.ai_service.dto.ClusterServiceApiResponse;
+import com.kubemanager.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -26,37 +29,33 @@ public class ClusterServiceClient {
         UserContext context =
                 UserContextHolder.getRequiredContext();
 
-        return restClient
-                .post()
-                .uri(
-                        clusterServiceUrl
-                                + "/api/v1/clusters/{clusterId}/health-check",
-                        clusterId
-                )
-                .headers(headers ->
-                        addUserContextHeaders(headers, context)
-                )
-                .retrieve()
-                .body(ClusterHealthResponse.class);
-    }
+        ClusterServiceApiResponse response =
+                restClient
+                        .post()
+                        .uri(
+                                clusterServiceUrl
+                                        + "/api/v1/clusters/{clusterId}/health-check",
+                                clusterId
+                        )
+                        .headers(headers ->
+                                addUserContextHeaders(headers, context)
+                        )
+                        .retrieve()
+                        .body(ClusterServiceApiResponse.class);
 
-    public ClusterHealthResponse getClusterInfo(UUID clusterId) {
+        if (response == null) {
+            throw new IllegalStateException(
+                    "Empty response received from cluster-service."
+            );
+        }
 
-        UserContext context =
-                UserContextHolder.getRequiredContext();
+        if (!response.isSuccess()) {
+            throw new IllegalStateException(
+                    response.getMessage()
+            );
+        }
 
-        return restClient
-                .get()
-                .uri(
-                        clusterServiceUrl
-                                + "/api/v1/clusters/{clusterId}",
-                        clusterId
-                )
-                .headers(headers ->
-                        addUserContextHeaders(headers, context)
-                )
-                .retrieve()
-                .body(ClusterHealthResponse.class);
+        return response.getData();
     }
 
     private void addUserContextHeaders(
@@ -116,7 +115,10 @@ public class ClusterServiceClient {
     ) {
 
         if (value != null) {
-            headers.set(name, value.toString());
+            headers.set(
+                    name,
+                    value.toString()
+            );
         }
     }
 }
