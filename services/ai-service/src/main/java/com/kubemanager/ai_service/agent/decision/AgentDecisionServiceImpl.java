@@ -1,9 +1,13 @@
 package com.kubemanager.ai_service.agent.decision;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kubemanager.ai_service.agent.context.AgentContext;
+import com.kubemanager.ai_service.agent.context.AgentContextService;
 import com.kubemanager.ai_service.agent.model.AgentRequest;
 import com.kubemanager.ai_service.agent.tool.ToolDefinition;
 import com.kubemanager.ai_service.agent.tool.ToolRegistry;
+import com.kubemanager.ai_service.auth.UserContext;
+import com.kubemanager.ai_service.auth.UserContextHolder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -20,15 +24,49 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
     private final ToolRegistry toolRegistry;
+    private final AgentContextService agentContextService;
 
     @Override
     public AgentDecision decide(AgentRequest request) {
+
+        if (request == null
+                || request.getMessage() == null
+                || request.getMessage().isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Agent request cannot be null or blank."
+            );
+        }
+
+        /*
+         * Get the currently authenticated user.
+         *
+         * AgentContext is stored per user, so the userId is used
+         * to retrieve the context of the current conversation.
+         */
+        UserContext userContext =
+                UserContextHolder.getRequiredContext();
+
+        String userId =
+                String.valueOf(userContext.getUserId());
+
+        /*
+         * Retrieve the previous agent context.
+         *
+         * This can be null when the user is making their
+         * first request.
+         */
+        AgentContext previousContext =
+                agentContextService.getContext(userId);
 
         List<ToolDefinition> toolDefinitions =
                 toolRegistry.getDefinitions();
 
         String availableTools =
                 buildToolDefinitions(toolDefinitions);
+
+        String contextInformation =
+                buildContextInformation(previousContext);
 
         String prompt = """
                 You are the decision-making engine of KubeManager AI.
@@ -39,7 +77,33 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
                 1. Can be answered directly using normal conversation.
                 2. Requires execution of one of the available tools.
 
+                You are operating as an agentic Kubernetes assistant.
+
+                You have access to previous agent context from the
+                current user's earlier interaction.
+
+                Use that context when the current request refers to
+                something from the previous interaction.
+
+                Examples:
+
+                - "scale it to 5" may refer to the deployment mentioned
+                  in the previous interaction.
+                - "delete that pod" may refer to the pod identified
+                  previously.
+                - "show me its details" may refer to the Kubernetes
+                  resource from the previous interaction.
+                - "restart it" may refer to the deployment previously
+                  discussed.
+
+                Do NOT guess when the previous context does not contain
+                enough information to resolve the user's request.
+
                 AVAILABLE TOOLS:
+
+                %s
+
+                PREVIOUS AGENT CONTEXT:
 
                 %s
 
@@ -78,19 +142,34 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
                 - Use a tool only when the user's request actually requires it.
                 - If required information for a tool is missing, return CHAT
                   and ask the user for that information.
-                - If the request is normal conversation, return CHAT.
+                - Use previous agent context when it provides information
+                  required to understand the current request.
+                - If a reference such as "it", "that", "this", "same",
+                  or "the deployment" can be resolved from previous
+                  context, use the corresponding information.
+                - Do NOT invent missing values even when previous context
+                  exists.
                 - The toolName must exactly match the available tool name.
                 - The arguments must follow the tool's input schema.
+                - If the current request conflicts with previous context,
+                  prioritize the current user request.
+                - If the request is normal conversation, return CHAT.
 
-                USER REQUEST:
+                CURRENT USER REQUEST:
 
                 %s
                 """.formatted(
                 availableTools,
+                contextInformation,
                 request.getMessage()
         );
 
         try {
+
+            log.debug(
+                    "Generating agent decision for userId={}",
+                    userId
+            );
 
             String rawResponse = chatClient
                     .prompt()
@@ -138,11 +217,15 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
         }
     }
 
+    /**
+     * Builds the tool definitions that are provided to the LLM.
+     */
     private String buildToolDefinitions(
             List<ToolDefinition> toolDefinitions
     ) {
 
-        if (toolDefinitions == null || toolDefinitions.isEmpty()) {
+        if (toolDefinitions == null
+                || toolDefinitions.isEmpty()) {
 
             return "No tools are currently available.";
         }
@@ -164,6 +247,48 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
                         tool.getInputSchema()
                 ))
                 .collect(Collectors.joining("\n"));
+    }
+
+    /**
+     * Converts the existing AgentContext into information
+     * that can be supplied to the LLM.
+     */
+    private String buildContextInformation(
+            AgentContext context
+    ) {
+
+        if (context == null) {
+
+            return """
+                    No previous agent context is available.
+
+                    This is either the user's first request or
+                    no context has been stored yet.
+                    """;
+        }
+
+        return """
+                User ID:
+                %s
+
+                Last User Message:
+                %s
+
+                Last Tool Name:
+                %s
+
+                Last Tool Arguments:
+                %s
+
+                Last Tool Result:
+                %s
+                """.formatted(
+                context.getUserId(),
+                context.getLastUserMessage(),
+                context.getLastToolName(),
+                context.getLastToolArguments(),
+                context.getLastToolResult()
+        );
     }
 
     private void validateDecision(
@@ -194,8 +319,13 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
                 );
             }
 
-            // Verify that the AI selected an actually registered tool.
-            toolRegistry.getTool(decision.getToolName());
+            /*
+             * Verify that the AI selected an actually
+             * registered tool.
+             */
+            toolRegistry.getTool(
+                    decision.getToolName()
+            );
 
             if (decision.getArguments() == null) {
 
