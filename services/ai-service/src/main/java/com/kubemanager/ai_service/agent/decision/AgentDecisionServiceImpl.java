@@ -19,7 +19,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class AgentDecisionServiceImpl implements AgentDecisionService {
+public class AgentDecisionServiceImpl
+        implements AgentDecisionService {
 
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
@@ -38,24 +39,12 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
             );
         }
 
-        /*
-         * Get the currently authenticated user.
-         *
-         * AgentContext is stored per user, so the userId is used
-         * to retrieve the context of the current conversation.
-         */
         UserContext userContext =
                 UserContextHolder.getRequiredContext();
 
         String userId =
                 String.valueOf(userContext.getUserId());
 
-        /*
-         * Retrieve the previous agent context.
-         *
-         * This can be null when the user is making their
-         * first request.
-         */
         AgentContext previousContext =
                 agentContextService.getContext(userId);
 
@@ -65,49 +54,122 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
         String availableTools =
                 buildToolDefinitions(toolDefinitions);
 
+
         String contextInformation =
                 buildContextInformation(previousContext);
+
 
         String prompt = """
                 You are the decision-making engine of KubeManager AI.
 
-                Your job is to analyze the user's request and decide
-                whether the request:
+                You are an agentic Kubernetes assistant.
 
-                1. Can be answered directly using normal conversation.
-                2. Requires execution of one of the available tools.
+                Your responsibility is to analyze the current user
+                request and determine whether:
 
-                You are operating as an agentic Kubernetes assistant.
+                1. The request can be answered directly using normal
+                   conversation.
 
-                You have access to previous agent context from the
-                current user's earlier interaction.
+                2. The request requires execution of one of the
+                   available Kubernetes tools.
 
-                Use that context when the current request refers to
-                something from the previous interaction.
+                You have access to the previous interaction context
+                of the current user.
 
-                Examples:
+                Use previous context ONLY when it provides reliable
+                information needed to understand the current request.
 
-                - "scale it to 5" may refer to the deployment mentioned
-                  in the previous interaction.
-                - "delete that pod" may refer to the pod identified
-                  previously.
-                - "show me its details" may refer to the Kubernetes
-                  resource from the previous interaction.
-                - "restart it" may refer to the deployment previously
-                  discussed.
-
-                Do NOT guess when the previous context does not contain
-                enough information to resolve the user's request.
-
-                AVAILABLE TOOLS:
+                =====================================================
+                AVAILABLE TOOLS
+                =====================================================
 
                 %s
 
-                PREVIOUS AGENT CONTEXT:
+                =====================================================
+                PREVIOUS AGENT CONTEXT
+                =====================================================
 
                 %s
 
-                RESPONSE FORMAT:
+                =====================================================
+                CONTEXT RESOLUTION
+                =====================================================
+
+                The previous context may contain:
+
+                - The previous user message.
+                - The previous tool that was executed.
+                - The arguments used by that tool.
+                - The result returned by that tool.
+
+                Use this information to resolve references such as:
+
+                - "it"
+                - "that"
+                - "this"
+                - "the deployment"
+                - "the pod"
+                - "the namespace"
+                - "the same deployment"
+                - "the first one"
+                - "restart it"
+                - "scale it"
+                - "delete it"
+                - "show its details"
+
+                Example:
+
+                Previous request:
+                "Show me the deployments in ai-test."
+
+                Previous tool:
+                deployment_list_by_namespace
+
+                Current request:
+                "Scale the first one to 5."
+
+                If the previous tool result identifies the deployment
+                and the required clusterId and namespace are available,
+                resolve the reference and generate the appropriate
+                TOOL_CALL.
+
+                Another example:
+
+                Previous request:
+                "Show me the pod api-server-123."
+
+                Current request:
+                "Delete it."
+
+                If the previous context identifies the pod and contains
+                the required clusterId, namespace and pod name,
+                generate the appropriate pod deletion TOOL_CALL.
+
+                =====================================================
+                IMPORTANT CONTEXT RULES
+                =====================================================
+
+                - Previous context is supporting information only.
+                - Always prioritize the current user request.
+                - Never invent missing values.
+                - Never fabricate cluster IDs.
+                - Never fabricate namespace names.
+                - Never fabricate pod names.
+                - Never fabricate deployment names.
+                - Never fabricate tool arguments.
+                - Do not assume that a previous resource still exists.
+                - If the previous context does not contain enough
+                  information to safely execute a tool, return CHAT
+                  and ask the user for the missing information.
+                - Do not use a previous tool result if it is unrelated
+                  to the current request.
+                - Do not blindly repeat the previous tool.
+                - Determine the required action from the current request.
+                - Only use tools explicitly listed in AVAILABLE TOOLS.
+
+                =====================================================
+                RESPONSE FORMAT
+                =====================================================
 
                 For a normal conversational request:
 
@@ -129,33 +191,34 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
                   "response": null
                 }
 
-                RULES:
+                =====================================================
+                DECISION RULES
+                =====================================================
 
                 - Return ONLY valid JSON.
                 - Do NOT return markdown.
-                - Do NOT wrap the JSON inside ```json or ``` blocks.
+                - Do NOT wrap JSON inside ```json or ``` blocks.
                 - Do NOT add explanations outside the JSON.
-                - Only use tools that are listed in AVAILABLE TOOLS.
+                - Only use tools listed in AVAILABLE TOOLS.
+                - The toolName must exactly match a registered tool.
+                - Arguments must follow the tool's input schema.
                 - Do NOT invent tool names.
-                - Do NOT invent tool arguments.
-                - Do NOT invent resource IDs such as clusterId.
-                - Use a tool only when the user's request actually requires it.
-                - If required information for a tool is missing, return CHAT
-                  and ask the user for that information.
-                - Use previous agent context when it provides information
-                  required to understand the current request.
-                - If a reference such as "it", "that", "this", "same",
-                  or "the deployment" can be resolved from previous
-                  context, use the corresponding information.
-                - Do NOT invent missing values even when previous context
-                  exists.
-                - The toolName must exactly match the available tool name.
-                - The arguments must follow the tool's input schema.
-                - If the current request conflicts with previous context,
-                  prioritize the current user request.
+                - Do NOT invent arguments.
+                - Do NOT invent resource identifiers.
+                - Use a tool only when the request requires execution.
+                - If required information is missing, return CHAT and
+                  ask for that information.
                 - If the request is normal conversation, return CHAT.
+                - If previous context resolves a reference safely,
+                  use the resolved information.
+                - If previous context cannot safely resolve the
+                  reference, ask the user for clarification.
+                - If the current request conflicts with previous
+                  context, prioritize the current request.
 
-                CURRENT USER REQUEST:
+                =====================================================
+                CURRENT USER REQUEST
+                =====================================================
 
                 %s
                 """.formatted(
@@ -171,13 +234,15 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
                     userId
             );
 
-            String rawResponse = chatClient
-                    .prompt()
-                    .user(prompt)
-                    .call()
-                    .content();
+            String rawResponse =
+                    chatClient
+                            .prompt()
+                            .user(prompt)
+                            .call()
+                            .content();
 
-            if (rawResponse == null || rawResponse.isBlank()) {
+            if (rawResponse == null
+                    || rawResponse.isBlank()) {
 
                 throw new IllegalStateException(
                         "AI decision engine returned an empty response"
@@ -218,7 +283,7 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
     }
 
     /**
-     * Builds the tool definitions that are provided to the LLM.
+     * Builds the list of tools available to the agent.
      */
     private String buildToolDefinitions(
             List<ToolDefinition> toolDefinitions
@@ -250,8 +315,8 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
     }
 
     /**
-     * Converts the existing AgentContext into information
-     * that can be supplied to the LLM.
+     * Converts the previous AgentContext into structured
+     * information that can be understood by the LLM.
      */
     private String buildContextInformation(
             AgentContext context
@@ -268,29 +333,40 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
         }
 
         return """
-                User ID:
+                Previous User Message:
                 %s
 
-                Last User Message:
+                Previous Tool:
                 %s
 
-                Last Tool Name:
+                Previous Tool Arguments:
                 %s
 
-                Last Tool Arguments:
-                %s
-
-                Last Tool Result:
+                Previous Tool Result:
                 %s
                 """.formatted(
-                context.getUserId(),
-                context.getLastUserMessage(),
-                context.getLastToolName(),
-                context.getLastToolArguments(),
-                context.getLastToolResult()
+                safeValue(context.getLastUserMessage()),
+                safeValue(context.getLastToolName()),
+                safeValue(context.getLastToolArguments()),
+                safeValue(context.getLastToolResult())
         );
     }
 
+    /**
+     * Prevents null values from appearing in the prompt.
+     */
+    private String safeValue(Object value) {
+
+        if (value == null) {
+            return "Not available.";
+        }
+
+        return String.valueOf(value);
+    }
+
+    /**
+     * Validates the decision generated by the LLM.
+     */
     private void validateDecision(
             AgentDecision decision
     ) {
@@ -320,8 +396,8 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
             }
 
             /*
-             * Verify that the AI selected an actually
-             * registered tool.
+             * Verify that the selected tool actually exists
+             * in the ToolRegistry.
              */
             toolRegistry.getTool(
                     decision.getToolName()
@@ -347,33 +423,41 @@ public class AgentDecisionServiceImpl implements AgentDecisionService {
         }
     }
 
+    /**
+     * Removes markdown code fences if the LLM returns JSON
+     * wrapped inside them.
+     */
     private String cleanJsonResponse(
             String response
     ) {
 
-        String cleaned = response.trim();
+        String cleaned =
+                response.trim();
 
         if (cleaned.startsWith("```json")) {
 
-            cleaned = cleaned
-                    .substring(7)
-                    .trim();
+            cleaned =
+                    cleaned
+                            .substring(7)
+                            .trim();
 
         } else if (cleaned.startsWith("```")) {
 
-            cleaned = cleaned
-                    .substring(3)
-                    .trim();
+            cleaned =
+                    cleaned
+                            .substring(3)
+                            .trim();
         }
 
         if (cleaned.endsWith("```")) {
 
-            cleaned = cleaned
-                    .substring(
-                            0,
-                            cleaned.length() - 3
-                    )
-                    .trim();
+            cleaned =
+                    cleaned
+                            .substring(
+                                    0,
+                                    cleaned.length() - 3
+                            )
+                            .trim();
         }
 
         return cleaned;
