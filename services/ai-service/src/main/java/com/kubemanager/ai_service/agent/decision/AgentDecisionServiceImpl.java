@@ -3,6 +3,8 @@ package com.kubemanager.ai_service.agent.decision;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kubemanager.ai_service.agent.context.AgentContext;
 import com.kubemanager.ai_service.agent.context.AgentContextService;
+import com.kubemanager.ai_service.agent.memory.AgentMemory;
+import com.kubemanager.ai_service.agent.memory.MemoryRetrievalService;
 import com.kubemanager.ai_service.agent.model.AgentRequest;
 import com.kubemanager.ai_service.agent.tool.ToolDefinition;
 import com.kubemanager.ai_service.agent.tool.ToolRegistry;
@@ -26,6 +28,7 @@ public class AgentDecisionServiceImpl
     private final ObjectMapper objectMapper;
     private final ToolRegistry toolRegistry;
     private final AgentContextService agentContextService;
+    private final MemoryRetrievalService memoryRetrievalService;
 
     @Override
     public AgentDecision decide(AgentRequest request) {
@@ -57,6 +60,15 @@ public class AgentDecisionServiceImpl
 
         String contextInformation =
                 buildContextInformation(previousContext);
+
+        List<AgentMemory> memories =
+                memoryRetrievalService.retrieveRelevantMemories(
+                        userId,
+                        request.getMessage()
+                );
+
+        String memoryInformation =
+                buildMemoryInformation(memories);
 
 
         String prompt = """
@@ -461,5 +473,41 @@ public class AgentDecisionServiceImpl
         }
 
         return cleaned;
+    }
+
+
+    /**
+     * Converts persistent AgentMemory objects into structured
+     * information that can be supplied to the LLM.
+     */
+    private String buildMemoryInformation(
+            List<AgentMemory> memories
+    ) {
+
+        if (memories == null || memories.isEmpty()) {
+
+            return """
+                No persistent memories are available
+                for this user.
+                """;
+        }
+
+        return memories
+                .stream()
+                .map(memory -> """
+                    Memory Type:
+                    %s
+
+                    Memory:
+                    %s
+
+                    Source:
+                    %s
+                    """.formatted(
+                        safeValue(memory.getMemoryType()),
+                        safeValue(memory.getContent()),
+                        safeValue(memory.getSource())
+                ))
+                .collect(Collectors.joining("\n"));
     }
 }
