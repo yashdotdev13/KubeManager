@@ -3,10 +3,7 @@ package com.kubemanager.ai_service.client;
 import com.kubemanager.ai_service.auth.HeaderConstants;
 import com.kubemanager.ai_service.auth.UserContext;
 import com.kubemanager.ai_service.auth.UserContextHolder;
-import com.kubemanager.ai_service.dto.DeploymentInfoServiceApiResponse;
-import com.kubemanager.ai_service.dto.DeploymentScaleRequest;
-import com.kubemanager.ai_service.dto.DeploymentScaleServiceApiResponse;
-import com.kubemanager.ai_service.dto.DeploymentServiceApiResponse;
+import com.kubemanager.ai_service.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -344,6 +341,50 @@ public class DeploymentServiceClient {
         return response;
     }
 
+
+
+    public DeploymentCreateServiceApiResponse createDeployment(
+            UUID clusterId,
+            DeploymentCreateRequest request
+    ) {
+
+        UserContext context =
+                UserContextHolder.getRequiredContext();
+
+        DeploymentCreateServiceApiResponse response =
+                restClient
+                        .post()
+                        .uri(
+                                clusterServiceUrl
+                                        + "/api/v1/clusters/{clusterId}/deployments",
+                                clusterId
+                        )
+                        .headers(headers ->
+                                addUserContextHeaders(
+                                        headers,
+                                        context
+                                )
+                        )
+                        .body(request)
+                        .retrieve()
+                        .body(DeploymentCreateServiceApiResponse.class);
+
+        if (response == null) {
+
+            throw new IllegalStateException(
+                    "Empty response received from cluster-service."
+            );
+        }
+
+        if (!response.isSuccess()) {
+
+            throw new IllegalStateException(
+                    response.getMessage()
+            );
+        }
+
+        return response;
+    }
     private void addHeader(
             HttpHeaders headers,
             String name,
