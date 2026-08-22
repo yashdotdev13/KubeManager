@@ -18,4 +18,6 @@ public class AgentContext {
     private Map<String, Object> lastToolArguments;
 
     private Object lastToolResult;
+
+    private AgentEvidenceContext evidenceContext;
 }
