@@ -15,9 +15,10 @@ public class AgentWorkflowExecutor {
     private static final int MAX_WORKFLOW_STEPS = 8;
 
     private final WorkflowDecisionService workflowDecisionService;
+
     private final ToolExecutor toolExecutor;
 
-    public WorkflowDecision execute(
+    public AgentWorkflowResult execute(
             String userMessage
     ) {
 
@@ -60,7 +61,28 @@ public class AgentWorkflowExecutor {
                         workflowContext.getExecutionCount()
                 );
 
-                return decision;
+                return AgentWorkflowResult.builder()
+                        .finalResponse(
+                                decision.getResponse()
+                        )
+                        .finalToolName(
+                                getLastToolName(
+                                        workflowContext
+                                )
+                        )
+                        .finalToolResult(
+                                getLastToolResult(
+                                        workflowContext
+                                )
+                        )
+                        .executionSteps(
+                                workflowContext.getExecutionSteps()
+                        )
+                        .executionCount(
+                                workflowContext.getExecutionCount()
+                        )
+                        .successful(true)
+                        .build();
             }
 
             if (decision.getType()
@@ -80,6 +102,13 @@ public class AgentWorkflowExecutor {
                 );
             }
 
+            if (decision.getArguments() == null) {
+
+                throw new IllegalStateException(
+                        "Workflow tool arguments cannot be null."
+                );
+            }
+
             ToolRequest toolRequest =
                     ToolRequest.builder()
                             .toolName(
@@ -90,10 +119,13 @@ public class AgentWorkflowExecutor {
                             )
                             .build();
 
+            int stepNumber =
+                    workflowContext.getExecutionCount() + 1;
+
             log.info(
                     "Executing workflow tool '{}' at step {}.",
                     decision.getToolName(),
-                    workflowContext.getExecutionCount() + 1
+                    stepNumber
             );
 
             ToolResponse toolResponse =
@@ -103,14 +135,27 @@ public class AgentWorkflowExecutor {
 
             if (toolResponse == null) {
 
-                throw new IllegalStateException(
-                        "Tool execution returned no response."
+                log.error(
+                        "Tool '{}' returned null response.",
+                        decision.getToolName()
                 );
+
+                return AgentWorkflowResult.builder()
+                        .finalResponse(
+                                "Tool execution returned no response."
+                        )
+                        .finalToolName(
+                                decision.getToolName()
+                        )
+                        .executionSteps(
+                                workflowContext.getExecutionSteps()
+                        )
+                        .executionCount(
+                                workflowContext.getExecutionCount()
+                        )
+                        .successful(false)
+                        .build();
             }
-
-            int stepNumber =
-                    workflowContext.getExecutionCount() + 1;
-
             ToolExecutionStep executionStep =
                     ToolExecutionStep.builder()
                             .stepNumber(stepNumber)
@@ -141,38 +186,101 @@ public class AgentWorkflowExecutor {
                         stepNumber
                 );
 
-                return WorkflowDecision.builder()
-                        .type(
-                                WorkflowDecisionType.COMPLETE
-                        )
-                        .response(
+                return AgentWorkflowResult.builder()
+                        .finalResponse(
                                 toolResponse.getMessage() != null
                                         ? toolResponse.getMessage()
                                         : "The requested operation could not be completed."
                         )
-                        .reasoning(
-                                "Workflow stopped because the selected tool failed."
+                        .finalToolName(
+                                decision.getToolName()
                         )
+                        .finalToolResult(
+                                toolResponse.getData()
+                        )
+                        .executionSteps(
+                                workflowContext.getExecutionSteps()
+                        )
+                        .executionCount(
+                                workflowContext.getExecutionCount()
+                        )
+                        .successful(false)
                         .build();
             }
         }
-
         log.warn(
                 "Workflow reached maximum step limit of {}.",
                 MAX_WORKFLOW_STEPS
         );
 
-        return WorkflowDecision.builder()
-                .type(
-                        WorkflowDecisionType.COMPLETE
+        return AgentWorkflowResult.builder()
+                .finalResponse(
+                        "I could not safely complete the " +
+                                "requested operation within the " +
+                                "allowed workflow steps."
                 )
-                .response(
-                        "I could not safely complete the requested " +
-                                "operation within the allowed workflow steps."
+                .finalToolName(
+                        getLastToolName(
+                                workflowContext
+                        )
                 )
-                .reasoning(
-                        "Maximum workflow execution limit reached."
+                .finalToolResult(
+                        getLastToolResult(
+                                workflowContext
+                        )
                 )
+                .executionSteps(
+                        workflowContext.getExecutionSteps()
+                )
+                .executionCount(
+                        workflowContext.getExecutionCount()
+                )
+                .successful(false)
                 .build();
+    }
+    private String getLastToolName(
+            AgentWorkflowContext workflowContext
+    ) {
+
+        if (workflowContext.getExecutionSteps() == null
+                || workflowContext.getExecutionSteps().isEmpty()) {
+
+            return null;
+        }
+
+        return workflowContext
+                .getExecutionSteps()
+                .get(
+                        workflowContext
+                                .getExecutionSteps()
+                                .size() - 1
+                )
+                .getToolName();
+    }
+
+    private Object getLastToolResult(
+            AgentWorkflowContext workflowContext
+    ) {
+
+        if (workflowContext.getExecutionSteps() == null
+                || workflowContext.getExecutionSteps().isEmpty()) {
+
+            return null;
+        }
+
+        ToolResponse response =
+                workflowContext
+                        .getExecutionSteps()
+                        .get(
+                                workflowContext
+                                        .getExecutionSteps()
+                                        .size() - 1
+                        )
+                        .getResponse();
+
+        if (response == null) {
+            return null;
+        }
+        return response.getData();
     }
 }

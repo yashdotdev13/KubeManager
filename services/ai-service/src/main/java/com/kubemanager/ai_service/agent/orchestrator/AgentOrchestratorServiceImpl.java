@@ -8,13 +8,16 @@ import com.kubemanager.ai_service.agent.memory.MemoryExtractionService;
 import com.kubemanager.ai_service.agent.model.AgentRequest;
 import com.kubemanager.ai_service.agent.model.AgentResponse;
 import com.kubemanager.ai_service.agent.workflow.AgentWorkflowExecutor;
-import com.kubemanager.ai_service.agent.workflow.WorkflowDecision;
-import com.kubemanager.ai_service.agent.workflow.WorkflowDecisionType;
+import com.kubemanager.ai_service.agent.workflow.AgentWorkflowResult;
+import com.kubemanager.ai_service.agent.workflow.ToolExecutionStep;
 import com.kubemanager.ai_service.auth.UserContext;
 import com.kubemanager.ai_service.auth.UserContextHolder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -51,16 +54,16 @@ public class AgentOrchestratorServiceImpl
                 String.valueOf(
                         userContext.getUserId()
                 );
+
         AgentContext previousContext =
                 agentContextService.getContext(
                         userId
                 );
-
-        WorkflowDecision workflowDecision;
+        AgentWorkflowResult workflowResult;
 
         try {
 
-            workflowDecision =
+            workflowResult =
                     agentWorkflowExecutor.execute(
                             request.getMessage()
                     );
@@ -83,61 +86,88 @@ public class AgentOrchestratorServiceImpl
                     .build();
         }
 
-        if (workflowDecision == null) {
+        if (workflowResult == null) {
 
             return AgentResponse.builder()
                     .message(
-                            "The agent workflow returned no response."
+                            "The agent workflow returned no result."
                     )
                     .data(null)
                     .build();
         }
-
-
-        if (workflowDecision.getType()
-                != WorkflowDecisionType.COMPLETE) {
-
-            return AgentResponse.builder()
-                    .message(
-                            "The agent workflow did not complete safely."
-                    )
-                    .data(null)
-                    .build();
-        }
-
-        String finalResponse =
-                workflowDecision.getResponse();
-
         updateAgentContext(
                 userId,
                 request,
                 previousContext,
-                workflowDecision
+                workflowResult
         );
-
         extractAndStoreMemorySafely(
                 userId,
                 request.getMessage(),
-                null,
-                workflowDecision.getResponse()
+                workflowResult
         );
 
+        String finalResponse =
+                workflowResult.getFinalResponse();
+
+        if (finalResponse == null
+                || finalResponse.isBlank()) {
+
+            finalResponse =
+                    workflowResult.isSuccessful()
+                            ? "The operation completed successfully."
+                            : "The requested operation could not be completed.";
+        }
+
         return AgentResponse.builder()
-                .message(
-                        finalResponse != null
-                                && !finalResponse.isBlank()
-                                ? finalResponse
-                                : "The operation completed successfully."
+                .message(finalResponse)
+                .data(
+                        workflowResult.getFinalToolResult()
                 )
-                .data(null)
                 .build();
     }
     private void updateAgentContext(
             String userId,
             AgentRequest request,
             AgentContext previousContext,
-            WorkflowDecision workflowDecision
+            AgentWorkflowResult workflowResult
     ) {
+
+        String lastToolName =
+                workflowResult.getFinalToolName();
+
+        Map<String, Object> lastToolArguments =
+                extractLastToolArguments(
+                        workflowResult
+                );
+
+        Object lastToolResult =
+                workflowResult.getFinalToolResult();
+
+        /*
+         * Preserve previous information when the workflow
+         * did not execute a tool.
+         */
+        if (lastToolName == null
+                && previousContext != null) {
+
+            lastToolName =
+                    previousContext.getLastToolName();
+        }
+
+        if (lastToolArguments == null
+                && previousContext != null) {
+
+            lastToolArguments =
+                    previousContext.getLastToolArguments();
+        }
+
+        if (lastToolResult == null
+                && previousContext != null) {
+
+            lastToolResult =
+                    previousContext.getLastToolResult();
+        }
 
         AgentContext context =
                 AgentContext.builder()
@@ -146,17 +176,13 @@ public class AgentOrchestratorServiceImpl
                                 request.getMessage()
                         )
                         .lastToolName(
-                                previousContext != null
-                                        ? previousContext.getLastToolName()
-                                        : null
+                                lastToolName
                         )
                         .lastToolArguments(
-                                previousContext != null
-                                        ? previousContext.getLastToolArguments()
-                                        : null
+                                lastToolArguments
                         )
                         .lastToolResult(
-                                workflowDecision.getResponse()
+                                lastToolResult
                         )
                         .build();
 
@@ -166,25 +192,65 @@ public class AgentOrchestratorServiceImpl
         );
     }
 
+    private Map<String, Object> extractLastToolArguments(
+            AgentWorkflowResult workflowResult
+    ) {
+
+        List<ToolExecutionStep> executionSteps =
+                workflowResult.getExecutionSteps();
+
+        if (executionSteps == null
+                || executionSteps.isEmpty()) {
+
+            return null;
+        }
+
+        ToolExecutionStep lastStep =
+                executionSteps.get(
+                        executionSteps.size() - 1
+                );
+
+        return lastStep.getArguments();
+    }
     private void extractAndStoreMemorySafely(
             String userId,
             String userMessage,
-            String toolName,
-            Object toolResult
+            AgentWorkflowResult workflowResult
     ) {
 
         try {
 
+            /*
+             * Pass the workflow result to memory extraction
+             * instead of only passing the final response.
+             *
+             * This allows memory extraction to consider the
+             * complete agent interaction.
+             */
             MemoryExtractionResult extractionResult =
                     memoryExtractionService.extract(
                             userMessage,
-                            toolName,
-                            toolResult
+                            workflowResult.getFinalToolName(),
+                            workflowResult.getFinalToolResult()
                     );
 
-            if (extractionResult == null
-                    || !extractionResult.isShouldRemember()
-                    || extractionResult.getMemories() == null
+            if (extractionResult == null) {
+
+                return;
+            }
+
+            if (!extractionResult.isShouldRemember()) {
+
+                log.debug(
+                        "No persistent memory identified " +
+                                "for userId={}",
+                        userId
+                );
+
+                return;
+            }
+
+            if (extractionResult.getMemories() == null
                     || extractionResult.getMemories().isEmpty()) {
 
                 return;
@@ -202,11 +268,19 @@ public class AgentOrchestratorServiceImpl
                 if (memory.getMemoryType() == null
                         || memory.getMemoryType().isBlank()) {
 
+                    log.warn(
+                            "Skipping memory with missing type."
+                    );
+
                     continue;
                 }
 
                 if (memory.getContent() == null
                         || memory.getContent().isBlank()) {
+
+                    log.warn(
+                            "Skipping memory with empty content."
+                    );
 
                     continue;
                 }
@@ -217,11 +291,25 @@ public class AgentOrchestratorServiceImpl
                         memory.getContent(),
                         memory.getSource()
                 );
+
+                log.debug(
+                        "Persistent memory saved for userId={} " +
+                                "type={}",
+                        userId,
+                        memory.getMemoryType()
+                );
             }
 
         } catch (Exception exception) {
+
+            /*
+             * Memory is an auxiliary capability.
+             *
+             * A memory failure must NEVER cause a Kubernetes
+             * workflow to fail.
+             */
             log.error(
-                    "Failed to extract/store memory " +
+                    "Failed to extract/store agent memory " +
                             "for userId={}",
                     userId,
                     exception
