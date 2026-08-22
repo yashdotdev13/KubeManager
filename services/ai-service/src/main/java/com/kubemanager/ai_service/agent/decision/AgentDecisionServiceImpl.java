@@ -3,11 +3,10 @@ package com.kubemanager.ai_service.agent.decision;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kubemanager.ai_service.agent.context.AgentContext;
 import com.kubemanager.ai_service.agent.context.AgentContextService;
-import com.kubemanager.ai_service.agent.memory.AgentMemory;
-import com.kubemanager.ai_service.agent.memory.MemoryRetrievalService;
 import com.kubemanager.ai_service.agent.model.AgentRequest;
 import com.kubemanager.ai_service.agent.tool.ToolDefinition;
 import com.kubemanager.ai_service.agent.tool.ToolRegistry;
+import com.kubemanager.ai_service.agent.workflow.AgentWorkflowContext;
 import com.kubemanager.ai_service.auth.UserContext;
 import com.kubemanager.ai_service.auth.UserContextHolder;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +15,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,10 +28,12 @@ public class AgentDecisionServiceImpl
     private final ObjectMapper objectMapper;
     private final ToolRegistry toolRegistry;
     private final AgentContextService agentContextService;
-    private final MemoryRetrievalService memoryRetrievalService;
 
     @Override
-    public AgentDecision decide(AgentRequest request) {
+    public AgentDecision decide(
+            AgentRequest request,
+            AgentWorkflowContext workflowContext
+    ) {
 
         if (request == null
                 || request.getMessage() == null
@@ -41,149 +43,143 @@ public class AgentDecisionServiceImpl
                     "Agent request cannot be null or blank."
             );
         }
-
         UserContext userContext =
                 UserContextHolder.getRequiredContext();
 
         String userId =
-                String.valueOf(userContext.getUserId());
-
+                String.valueOf(
+                        userContext.getUserId()
+                );
         AgentContext previousContext =
-                agentContextService.getContext(userId);
-
+                agentContextService.getContext(
+                        userId
+                );
         List<ToolDefinition> toolDefinitions =
                 toolRegistry.getDefinitions();
 
         String availableTools =
-                buildToolDefinitions(toolDefinitions);
-
-
-        String contextInformation =
-                buildContextInformation(previousContext);
-
-        List<AgentMemory> memories =
-                memoryRetrievalService.retrieveRelevantMemories(
-                        userId,
-                        request.getMessage()
+                buildToolDefinitions(
+                        toolDefinitions
                 );
-
-        String memoryInformation =
-                buildMemoryInformation(memories);
-
+        String contextInformation =
+                buildContextInformation(
+                        previousContext
+                );
+        String workflowEvidence =
+                buildWorkflowEvidence(
+                        workflowContext
+                );
 
         String prompt = """
                 You are the decision-making engine of KubeManager AI.
 
                 You are an agentic Kubernetes assistant.
 
-                Your responsibility is to analyze the current user
-                request and determine whether:
+                Your responsibility is to analyze the user's request
+                and determine the next appropriate action.
 
-                1. The request can be answered directly using normal
-                   conversation.
+                A request may:
 
-                2. The request requires execution of one of the
-                   available Kubernetes tools.
+                1. Be answered directly using normal conversation.
+                2. Require execution of a Kubernetes tool.
+                3. Require another tool based on evidence already
+                   collected during the current workflow.
 
-                You have access to the previous interaction context
-                of the current user.
-
-                Use previous context ONLY when it provides reliable
-                information needed to understand the current request.
-
-                =====================================================
+                ----------------------------------------------------
                 AVAILABLE TOOLS
-                =====================================================
+                ----------------------------------------------------
 
                 %s
 
-                =====================================================
+                ----------------------------------------------------
                 PREVIOUS AGENT CONTEXT
-                =====================================================
+                ----------------------------------------------------
 
                 %s
 
-                =====================================================
-                CONTEXT RESOLUTION
-                =====================================================
+                ----------------------------------------------------
+                CURRENT WORKFLOW EVIDENCE
+                ----------------------------------------------------
 
-                The previous context may contain:
+                %s
 
-                - The previous user message.
-                - The previous tool that was executed.
-                - The arguments used by that tool.
-                - The result returned by that tool.
+                The CURRENT WORKFLOW EVIDENCE represents information
+                already collected from Kubernetes tools during the
+                current investigation.
 
-                Use this information to resolve references such as:
+                Treat this evidence as authoritative information
+                returned by the Kubernetes environment.
 
-                - "it"
-                - "that"
-                - "this"
-                - "the deployment"
-                - "the pod"
-                - "the namespace"
-                - "the same deployment"
-                - "the first one"
-                - "restart it"
-                - "scale it"
-                - "delete it"
-                - "show its details"
+                Use it to determine what information is already
+                available and what additional information is required.
 
-                Example:
+                Do NOT unnecessarily execute a tool when the required
+                information is already available in the evidence.
 
-                Previous request:
-                "Show me the deployments in ai-test."
+                If additional Kubernetes information is required,
+                select the appropriate available tool.
 
-                Previous tool:
-                deployment_list_by_namespace
+                ----------------------------------------------------
+                IMPORTANT AGENTIC BEHAVIOR
+                ----------------------------------------------------
 
-                Current request:
-                "Scale the first one to 5."
+                When investigating a Kubernetes problem, reason
+                progressively.
 
-                If the previous tool result identifies the deployment
-                and the required clusterId and namespace are available,
-                resolve the reference and generate the appropriate
-                TOOL_CALL.
+                Example investigation:
 
-                Another example:
+                deployment_info
+                    ↓
+                pod_info
+                    ↓
+                pod_logs
+                    ↓
+                kubernetes_events
+                    ↓
+                kubernetes_metrics
 
-                Previous request:
-                "Show me the pod api-server-123."
+                Do not assume that every investigation requires
+                every tool.
 
-                Current request:
-                "Delete it."
+                Select the next tool based on the evidence already
+                collected and the user's request.
 
-                If the previous context identifies the pod and contains
-                the required clusterId, namespace and pod name,
-                generate the appropriate pod deletion TOOL_CALL.
+                If the evidence already contains enough information
+                to answer the user's request, do not call another
+                unnecessary tool.
 
-                =====================================================
-                IMPORTANT CONTEXT RULES
-                =====================================================
+                If a tool result reveals a problem that requires
+                additional Kubernetes information, use another
+                appropriate tool.
 
-                - Previous context is supporting information only.
-                - Always prioritize the current user request.
-                - Never invent missing values.
-                - Never fabricate cluster IDs.
-                - Never fabricate namespace names.
-                - Never fabricate pod names.
-                - Never fabricate deployment names.
-                - Never fabricate tool arguments.
-                - Do not assume that a previous resource still exists.
-                - If the previous context does not contain enough
-                  information to safely execute a tool, return CHAT
-                  and ask the user for the missing information.
-                - Do not use a previous tool result if it is unrelated
-                  to the current request.
-                - Do not blindly repeat the previous tool.
-                - Determine the required action from the current request.
-                - Only use tools explicitly listed in AVAILABLE TOOLS.
+                Do NOT invent Kubernetes information.
 
-                =====================================================
+                Do NOT invent cluster IDs.
+
+                Do NOT invent namespace names.
+
+                Do NOT invent pod names.
+
+                Do NOT invent deployment names.
+
+                Resolve references such as:
+
+                "it"
+                "that pod"
+                "that deployment"
+                "the same pod"
+
+                using previous context or current workflow evidence
+                when possible.
+
+                If the reference cannot be resolved safely,
+                ask the user for the missing information.
+
+                ----------------------------------------------------
                 RESPONSE FORMAT
-                =====================================================
+                ----------------------------------------------------
 
-                For a normal conversational request:
+                For normal conversation:
 
                 {
                   "type": "CHAT",
@@ -203,39 +199,36 @@ public class AgentDecisionServiceImpl
                   "response": null
                 }
 
-                =====================================================
-                DECISION RULES
-                =====================================================
+                ----------------------------------------------------
+                RULES
+                ----------------------------------------------------
 
                 - Return ONLY valid JSON.
                 - Do NOT return markdown.
-                - Do NOT wrap JSON inside ```json or ``` blocks.
-                - Do NOT add explanations outside the JSON.
+                - Do NOT wrap JSON inside code blocks.
+                - Do NOT add explanations outside JSON.
                 - Only use tools listed in AVAILABLE TOOLS.
-                - The toolName must exactly match a registered tool.
-                - Arguments must follow the tool's input schema.
-                - Do NOT invent tool names.
-                - Do NOT invent arguments.
-                - Do NOT invent resource identifiers.
-                - Use a tool only when the request requires execution.
+                - Never invent tool names.
+                - Never invent tool arguments.
+                - Never invent Kubernetes resource IDs.
+                - Tool name must exactly match the registered tool.
+                - Arguments must follow the tool input schema.
+                - Use previous agent context when relevant.
+                - Use current workflow evidence when relevant.
+                - Prefer current user instructions over previous context.
                 - If required information is missing, return CHAT and
-                  ask for that information.
-                - If the request is normal conversation, return CHAT.
-                - If previous context resolves a reference safely,
-                  use the resolved information.
-                - If previous context cannot safely resolve the
-                  reference, ask the user for clarification.
-                - If the current request conflicts with previous
-                  context, prioritize the current request.
+                  ask the user for it.
+                - If no tool is required, return CHAT.
 
-                =====================================================
+                ----------------------------------------------------
                 CURRENT USER REQUEST
-                =====================================================
+                ----------------------------------------------------
 
                 %s
                 """.formatted(
                 availableTools,
                 contextInformation,
+                workflowEvidence,
                 request.getMessage()
         );
 
@@ -262,7 +255,9 @@ public class AgentDecisionServiceImpl
             }
 
             String jsonResponse =
-                    cleanJsonResponse(rawResponse);
+                    cleanJsonResponse(
+                            rawResponse
+                    );
 
             log.debug(
                     "AI decision response: {}",
@@ -275,14 +270,17 @@ public class AgentDecisionServiceImpl
                             AgentDecision.class
                     );
 
-            validateDecision(decision);
+            validateDecision(
+                    decision
+            );
 
             return decision;
 
         } catch (Exception exception) {
 
             log.error(
-                    "Failed to generate agent decision for request: {}",
+                    "Failed to generate agent decision " +
+                            "for request: {}",
                     request.getMessage(),
                     exception
             );
@@ -294,9 +292,6 @@ public class AgentDecisionServiceImpl
         }
     }
 
-    /**
-     * Builds the list of tools available to the agent.
-     */
     private String buildToolDefinitions(
             List<ToolDefinition> toolDefinitions
     ) {
@@ -323,13 +318,11 @@ public class AgentDecisionServiceImpl
                         tool.getDescription(),
                         tool.getInputSchema()
                 ))
-                .collect(Collectors.joining("\n"));
+                .collect(
+                        Collectors.joining("\n")
+                );
     }
 
-    /**
-     * Converts the previous AgentContext into structured
-     * information that can be understood by the LLM.
-     */
     private String buildContextInformation(
             AgentContext context
     ) {
@@ -345,40 +338,72 @@ public class AgentDecisionServiceImpl
         }
 
         return """
-                Previous User Message:
+                User ID:
                 %s
 
-                Previous Tool:
+                Last User Message:
                 %s
 
-                Previous Tool Arguments:
+                Last Tool Name:
                 %s
 
-                Previous Tool Result:
+                Last Tool Arguments:
+                %s
+
+                Last Tool Result:
                 %s
                 """.formatted(
-                safeValue(context.getLastUserMessage()),
-                safeValue(context.getLastToolName()),
-                safeValue(context.getLastToolArguments()),
-                safeValue(context.getLastToolResult())
+                context.getUserId(),
+                context.getLastUserMessage(),
+                context.getLastToolName(),
+                context.getLastToolArguments(),
+                context.getLastToolResult()
         );
     }
 
-    /**
-     * Prevents null values from appearing in the prompt.
-     */
-    private String safeValue(Object value) {
+    private String buildWorkflowEvidence(
+            AgentWorkflowContext workflowContext
+    ) {
 
-        if (value == null) {
-            return "Not available.";
+        if (workflowContext == null) {
+
+            return """
+                    No current workflow evidence is available.
+                    """;
         }
 
-        return String.valueOf(value);
+        Map<String, Object> evidence =
+                workflowContext
+                        .getAccumulatedContext();
+
+        if (evidence == null
+                || evidence.isEmpty()) {
+
+            return """
+                    No Kubernetes evidence has been collected
+                    during the current workflow.
+                    """;
+        }
+
+        return evidence
+                .entrySet()
+                .stream()
+                .map(entry -> """
+
+                        TOOL:
+                        %s
+
+                        RESULT:
+                        %s
+                        """.formatted(
+                        entry.getKey(),
+                        entry.getValue()
+                ))
+                .collect(
+                        Collectors.joining("\n")
+                );
     }
 
-    /**
-     * Validates the decision generated by the LLM.
-     */
     private void validateDecision(
             AgentDecision decision
     ) {
@@ -397,7 +422,8 @@ public class AgentDecisionServiceImpl
             );
         }
 
-        if (decision.getType() == DecisionType.TOOL_CALL) {
+        if (decision.getType()
+                == DecisionType.TOOL_CALL) {
 
             if (decision.getToolName() == null
                     || decision.getToolName().isBlank()) {
@@ -408,8 +434,8 @@ public class AgentDecisionServiceImpl
             }
 
             /*
-             * Verify that the selected tool actually exists
-             * in the ToolRegistry.
+             * Verify that the selected tool actually
+             * exists in the registry.
              */
             toolRegistry.getTool(
                     decision.getToolName()
@@ -423,22 +449,20 @@ public class AgentDecisionServiceImpl
             }
         }
 
-        if (decision.getType() == DecisionType.CHAT) {
+        if (decision.getType()
+                == DecisionType.CHAT) {
 
             if (decision.getResponse() == null
                     || decision.getResponse().isBlank()) {
 
                 log.warn(
-                        "AI returned CHAT decision without a response"
+                        "AI returned CHAT decision " +
+                                "without a response"
                 );
             }
         }
     }
 
-    /**
-     * Removes markdown code fences if the LLM returns JSON
-     * wrapped inside them.
-     */
     private String cleanJsonResponse(
             String response
     ) {
@@ -471,43 +495,6 @@ public class AgentDecisionServiceImpl
                             )
                             .trim();
         }
-
         return cleaned;
-    }
-
-
-    /**
-     * Converts persistent AgentMemory objects into structured
-     * information that can be supplied to the LLM.
-     */
-    private String buildMemoryInformation(
-            List<AgentMemory> memories
-    ) {
-
-        if (memories == null || memories.isEmpty()) {
-
-            return """
-                No persistent memories are available
-                for this user.
-                """;
-        }
-
-        return memories
-                .stream()
-                .map(memory -> """
-                    Memory Type:
-                    %s
-
-                    Memory:
-                    %s
-
-                    Source:
-                    %s
-                    """.formatted(
-                        safeValue(memory.getMemoryType()),
-                        safeValue(memory.getContent()),
-                        safeValue(memory.getSource())
-                ))
-                .collect(Collectors.joining("\n"));
     }
 }
