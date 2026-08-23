@@ -16,7 +16,6 @@ public class RagVectorStoreTestService {
     private final VectorStore vectorStore;
 
     public void insertTestDocument() {
-
         Document document = new Document(
                 """
                 Kubernetes CrashLoopBackOff occurs when a container
@@ -30,16 +29,10 @@ public class RagVectorStoreTestService {
                         "type", "test"
                 )
         );
-
-        vectorStore.add(
-                List.of(document)
-        );
+        vectorStore.add(List.of(document));
     }
 
-    public List<Document> search(
-            String query
-    ) {
-
+    public List<Document> search(String query) {
         return vectorStore.similaritySearch(
                 SearchRequest.builder()
                         .query(query)
