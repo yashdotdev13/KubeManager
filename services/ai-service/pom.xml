@@ -63,7 +63,10 @@
 			<scope>runtime</scope>
 		</dependency>
 
-
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
+		</dependency>
 
 		<dependency>
 			<groupId>org.projectlombok</groupId>
@@ -109,7 +112,6 @@
 	</dependencyManagement>
 
 	<build>
-
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
@@ -120,7 +122,6 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 
 				<executions>
-
 					<execution>
 						<id>default-compile</id>
 						<phase>compile</phase>
@@ -142,8 +143,6 @@
 
 						</configuration>
 					</execution>
-
-
 					<execution>
 						<id>default-testCompile</id>
 						<phase>test-compile</phase>
@@ -153,7 +152,6 @@
 						</goals>
 
 						<configuration>
-
 							<annotationProcessorPaths>
 
 								<path>
@@ -162,16 +160,10 @@
 								</path>
 
 							</annotationProcessorPaths>
-
 						</configuration>
 					</execution>
-
 				</executions>
-
 			</plugin>
-
 		</plugins>
-
 	</build>
-
 </project>

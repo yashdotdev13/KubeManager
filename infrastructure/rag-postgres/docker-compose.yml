@@ -1,0 +1,22 @@
+services:
+
+  rag-postgres:
+    image: pgvector/pgvector:0.8.6-pg18
+    container_name: kubemanager-rag-postgres
+
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: kubemanager_rag
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - kubemanager_rag_data:/var/lib/postgresql
+
+volumes:
+
+  kubemanager_rag_data:
