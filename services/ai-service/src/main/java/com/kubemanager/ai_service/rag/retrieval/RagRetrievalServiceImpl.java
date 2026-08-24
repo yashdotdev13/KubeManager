@@ -40,7 +40,7 @@ public class RagRetrievalServiceImpl
                 SearchRequest.builder()
                         .query(normalizedQuery)
                         .topK(5)
-                        .similarityThreshold(0.70)
+                        .similarityThreshold(0.0)
                         .build()
         );
 
