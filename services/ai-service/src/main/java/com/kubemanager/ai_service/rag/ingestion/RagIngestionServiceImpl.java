@@ -17,6 +17,8 @@ public class RagIngestionServiceImpl implements RagIngestionService {
 
     private final VectorStore vectorStore;
 
+    private final RagDocumentChunker documentChunker;
+
     @Override
     public void ingest(RagDocument ragDocument) {
 
@@ -38,6 +40,16 @@ public class RagIngestionServiceImpl implements RagIngestionService {
                 ragDocument.getContent(),
                 ragDocument.getMetadata()
         );
+
+        List<Document> chunks =
+                documentChunker.chunk(document);
+
+        if (chunks.isEmpty()) {
+
+            throw new IllegalStateException(
+                    "No chunks generated from RAG document."
+            );
+        }
 
         vectorStore.add(
                 List.of(document)
