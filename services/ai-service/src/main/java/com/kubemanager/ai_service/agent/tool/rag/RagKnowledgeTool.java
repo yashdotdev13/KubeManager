@@ -54,6 +54,7 @@ public class RagKnowledgeTool implements AiTool {
                 .build();
     }
 
+
     @Override
     public ToolResponse execute(
             ToolRequest request
@@ -65,7 +66,6 @@ public class RagKnowledgeTool implements AiTool {
                     "Tool request cannot be null."
             );
         }
-
         Map<String, Object> arguments =
                 request.getArguments();
 
