@@ -21,15 +21,12 @@ import java.util.Map;
 public class RagKnowledgeTool implements AiTool {
 
     private static final String TOOL_NAME = "rag_knowledge";
-
     private final RagRetrievalService ragRetrievalService;
 
     @Override
     public String getName() {
-
         return TOOL_NAME;
     }
-
     @Override
     public ToolDefinition getToolDefinition() {
 
@@ -119,12 +116,10 @@ public class RagKnowledgeTool implements AiTool {
 
 
             if (documents.isEmpty()) {
-
                 log.info(
                         "No relevant Kubernetes knowledge found for query='{}'",
                         query
                 );
-
                 return ToolResponse.builder()
                         .success(true)
                         .message(
@@ -140,7 +135,6 @@ public class RagKnowledgeTool implements AiTool {
                         )
                         .build();
             }
-
 
             log.info(
                     "Retrieved {} Kubernetes knowledge documents for query='{}'",
@@ -164,7 +158,6 @@ public class RagKnowledgeTool implements AiTool {
                     .build();
 
         } catch (Exception exception) {
-
             log.error(
                     "Failed to execute '{}' for query='{}'",
                     TOOL_NAME,

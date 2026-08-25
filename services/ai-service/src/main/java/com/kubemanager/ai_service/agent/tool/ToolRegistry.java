@@ -24,6 +24,8 @@ public class ToolRegistry {
                 );
     }
 
+
+
     public List<ToolDefinition> getDefinitions() {
 
         return aiTools.stream()
