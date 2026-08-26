@@ -18,7 +18,7 @@ class AgentWorkflowIntegrationTest {
     void shouldAnswerKubernetesKnowledgeQuestionUsingAgentWorkflow() {
 
         String userMessage =
-                "What is CrashLoopBackOff in Kubernetes?";
+                "My Kubernetes pod is in CrashLoopBackOff. Help me troubleshoot it.";
 
         AgentWorkflowResult result =
                 agentWorkflowExecutor.execute(

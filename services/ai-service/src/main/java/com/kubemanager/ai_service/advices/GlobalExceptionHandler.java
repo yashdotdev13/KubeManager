@@ -18,7 +18,6 @@ public class GlobalExceptionHandler {
             AiRequestException exception,
             HttpServletRequest request
     ) {
-
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 exception.getErrorCode(),
@@ -32,7 +31,6 @@ public class GlobalExceptionHandler {
             AiModelException exception,
             HttpServletRequest request
     ) {
-
         return buildResponse(
                 HttpStatus.BAD_GATEWAY,
                 exception.getErrorCode(),
@@ -46,7 +44,6 @@ public class GlobalExceptionHandler {
             AiToolException exception,
             HttpServletRequest request
     ) {
-
         return buildResponse(
                 HttpStatus.BAD_GATEWAY,
                 exception.getErrorCode(),
@@ -60,7 +57,6 @@ public class GlobalExceptionHandler {
             AiPlanningException exception,
             HttpServletRequest request
     ) {
-
         return buildResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 exception.getErrorCode(),
@@ -74,7 +70,6 @@ public class GlobalExceptionHandler {
             AiExecutionException exception,
             HttpServletRequest request
     ) {
-
         return buildResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 exception.getErrorCode(),
@@ -88,7 +83,6 @@ public class GlobalExceptionHandler {
             AiContextException exception,
             HttpServletRequest request
     ) {
-
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 exception.getErrorCode(),
@@ -102,7 +96,6 @@ public class GlobalExceptionHandler {
             AiServiceException exception,
             HttpServletRequest request
     ) {
-
         return buildResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 exception.getErrorCode(),
@@ -139,7 +132,6 @@ public class GlobalExceptionHandler {
                 message,
                 request.getRequestURI()
         );
-
         return ResponseEntity
                 .status(status)
                 .body(response);
