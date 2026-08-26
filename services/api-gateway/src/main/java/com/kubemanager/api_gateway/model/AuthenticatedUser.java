@@ -13,10 +13,7 @@ import java.util.List;
 public class AuthenticatedUser {
 
     private String userId;
-
     private String username;
-
     private String email;
-
     private List<String> roles;
 }
