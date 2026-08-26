@@ -66,11 +66,9 @@ public class CustomOAuth2UserService
                     );
         }
 
-        log.info("========================================");
         log.info("GitHub User Attributes");
         attributes.forEach((key, value) ->
                 log.info("{} -> {}", key, value));
-        log.info("========================================");
 
         OAuth2UserInfo userInfo;
 
