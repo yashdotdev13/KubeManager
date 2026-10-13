@@ -6,10 +6,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 
@@ -21,7 +23,6 @@ public class GlobalExceptionHandler {
             ResourceNotFoundException exception,
             HttpServletRequest request
     ) {
-
         return buildErrorResponse(
                 exception.getErrorCode().getCode(),
                 exception.getMessage(),
@@ -34,7 +35,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBadRequestException(
             BadRequestException exception
     ) {
-
         return buildErrorResponse(
                 exception.getErrorCode().getCode(),
                 exception.getMessage(),
@@ -47,7 +47,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleConflictException(
             ConflictException exception
     ) {
-
         return buildErrorResponse(
                 exception.getErrorCode().getCode(),
                 exception.getMessage(),
@@ -60,7 +59,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUnauthorizedException(
             UnauthorizedException exception
     ) {
-
         return buildErrorResponse(
                 exception.getErrorCode().getCode(),
                 exception.getMessage(),
@@ -73,7 +71,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleForbiddenException(
             ForbiddenException exception
     ) {
-
         return buildErrorResponse(
                 exception.getErrorCode().getCode(),
                 exception.getMessage(),
@@ -86,7 +83,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleValidationException(
             MethodArgumentNotValidException exception
     ) {
-
         List<String> errors = exception.getBindingResult()
                 .getFieldErrors()
                 .stream()
@@ -101,11 +97,34 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(
+            MethodArgumentTypeMismatchException exception
+    ) {
+        return buildErrorResponse(
+                ErrorCode.VALIDATION_ERROR.getCode(),
+                "Invalid value for request parameter: " + exception.getName(),
+                List.of(),
+                HttpStatus.BAD_REQUEST
+        );
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException exception
+    ) {
+        return buildErrorResponse(
+                ErrorCode.VALIDATION_ERROR.getCode(),
+                "Invalid request body or parameter format.",
+                List.of(),
+                HttpStatus.BAD_REQUEST
+        );
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(
             Exception exception
     ) {
-
         return buildErrorResponse(
                 ErrorCode.INTERNAL_SERVER_ERROR.getCode(),
                 ErrorCode.INTERNAL_SERVER_ERROR.getMessage(),
@@ -120,7 +139,6 @@ public class GlobalExceptionHandler {
             List<String> errors,
             HttpStatus status
     ) {
-
         ErrorResponse response = ErrorResponse.builder()
                 .errorCode(errorCode)
                 .message(message)
@@ -130,5 +148,4 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(status).body(response);
     }
-
 }
