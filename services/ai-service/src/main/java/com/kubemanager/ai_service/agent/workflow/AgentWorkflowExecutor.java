@@ -7,6 +7,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -18,13 +21,27 @@ public class AgentWorkflowExecutor {
 
     private final ToolExecutor toolExecutor;
 
+    /**
+     * Executes a workflow without persistent memories.
+     *
+     * Preserved for backward compatibility with existing callers.
+     */
+    public AgentWorkflowResult execute(String userMessage) {
+        return execute(
+                userMessage,
+                Collections.emptyList()
+        );
+    }
+
+    /**
+     * Executes a workflow with the user's persistent memories.
+     */
     public AgentWorkflowResult execute(
-            String userMessage
+            String userMessage,
+            List<String> persistentMemories
     ) {
 
-        if (userMessage == null
-                || userMessage.isBlank()) {
-
+        if (userMessage == null || userMessage.isBlank()) {
             throw new IllegalArgumentException(
                     "User message cannot be null or blank."
             );
@@ -32,7 +49,8 @@ public class AgentWorkflowExecutor {
 
         AgentWorkflowContext workflowContext =
                 new AgentWorkflowContext(
-                        userMessage
+                        userMessage,
+                        persistentMemories
                 );
 
         while (
@@ -62,18 +80,12 @@ public class AgentWorkflowExecutor {
                 );
 
                 return AgentWorkflowResult.builder()
-                        .finalResponse(
-                                decision.getResponse()
-                        )
+                        .finalResponse(decision.getResponse())
                         .finalToolName(
-                                getLastToolName(
-                                        workflowContext
-                                )
+                                getLastToolName(workflowContext)
                         )
                         .finalToolResult(
-                                getLastToolResult(
-                                        workflowContext
-                                )
+                                getLastToolResult(workflowContext)
                         )
                         .executionSteps(
                                 workflowContext.getExecutionSteps()
@@ -111,12 +123,8 @@ public class AgentWorkflowExecutor {
 
             ToolRequest toolRequest =
                     ToolRequest.builder()
-                            .toolName(
-                                    decision.getToolName()
-                            )
-                            .arguments(
-                                    decision.getArguments()
-                            )
+                            .toolName(decision.getToolName())
+                            .arguments(decision.getArguments())
                             .build();
 
             int stepNumber =
@@ -129,9 +137,7 @@ public class AgentWorkflowExecutor {
             );
 
             ToolResponse toolResponse =
-                    toolExecutor.execute(
-                            toolRequest
-                    );
+                    toolExecutor.execute(toolRequest);
 
             if (toolResponse == null) {
 
@@ -144,9 +150,7 @@ public class AgentWorkflowExecutor {
                         .finalResponse(
                                 "Tool execution returned no response."
                         )
-                        .finalToolName(
-                                decision.getToolName()
-                        )
+                        .finalToolName(decision.getToolName())
                         .executionSteps(
                                 workflowContext.getExecutionSteps()
                         )
@@ -156,28 +160,22 @@ public class AgentWorkflowExecutor {
                         .successful(false)
                         .build();
             }
+
             ToolExecutionStep executionStep =
                     ToolExecutionStep.builder()
                             .stepNumber(stepNumber)
-                            .toolName(
-                                    decision.getToolName()
-                            )
-                            .arguments(
-                                    decision.getArguments()
-                            )
-                            .response(
-                                    toolResponse
-                            )
+                            .toolName(decision.getToolName())
+                            .arguments(decision.getArguments())
+                            .response(toolResponse)
                             .build();
 
-            workflowContext.addExecutionStep(
-                    executionStep
-            );
+            workflowContext.addExecutionStep(executionStep);
 
             workflowContext.addToolResult(
                     decision.getToolName(),
                     toolResponse
             );
+
             if (!toolResponse.isSuccess()) {
 
                 log.warn(
@@ -192,12 +190,8 @@ public class AgentWorkflowExecutor {
                                         ? toolResponse.getMessage()
                                         : "The requested operation could not be completed."
                         )
-                        .finalToolName(
-                                decision.getToolName()
-                        )
-                        .finalToolResult(
-                                toolResponse.getData()
-                        )
+                        .finalToolName(decision.getToolName())
+                        .finalToolResult(toolResponse.getData())
                         .executionSteps(
                                 workflowContext.getExecutionSteps()
                         )
@@ -208,6 +202,7 @@ public class AgentWorkflowExecutor {
                         .build();
             }
         }
+
         log.warn(
                 "Workflow reached maximum step limit of {}.",
                 MAX_WORKFLOW_STEPS
@@ -219,16 +214,8 @@ public class AgentWorkflowExecutor {
                                 "requested operation within the " +
                                 "allowed workflow steps."
                 )
-                .finalToolName(
-                        getLastToolName(
-                                workflowContext
-                        )
-                )
-                .finalToolResult(
-                        getLastToolResult(
-                                workflowContext
-                        )
-                )
+                .finalToolName(getLastToolName(workflowContext))
+                .finalToolResult(getLastToolResult(workflowContext))
                 .executionSteps(
                         workflowContext.getExecutionSteps()
                 )
@@ -238,6 +225,7 @@ public class AgentWorkflowExecutor {
                 .successful(false)
                 .build();
     }
+
     private String getLastToolName(
             AgentWorkflowContext workflowContext
     ) {
@@ -248,12 +236,9 @@ public class AgentWorkflowExecutor {
             return null;
         }
 
-        return workflowContext
-                .getExecutionSteps()
+        return workflowContext.getExecutionSteps()
                 .get(
-                        workflowContext
-                                .getExecutionSteps()
-                                .size() - 1
+                        workflowContext.getExecutionSteps().size() - 1
                 )
                 .getToolName();
     }
@@ -269,18 +254,12 @@ public class AgentWorkflowExecutor {
         }
 
         ToolResponse response =
-                workflowContext
-                        .getExecutionSteps()
+                workflowContext.getExecutionSteps()
                         .get(
-                                workflowContext
-                                        .getExecutionSteps()
-                                        .size() - 1
+                                workflowContext.getExecutionSteps().size() - 1
                         )
                         .getResponse();
 
-        if (response == null) {
-            return null;
-        }
-        return response.getData();
+        return response == null ? null : response.getData();
     }
 }
