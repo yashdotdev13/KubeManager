@@ -14,11 +14,6 @@ public class AiChatServiceImpl implements AiChatService {
 
     @Override
     public String chat(String message) {
-
-        return chatClient
-                .prompt()
-                .user(message)
-                .call()
-                .content();
+        return chatClient.prompt().user(message).call().content();
     }
 }
