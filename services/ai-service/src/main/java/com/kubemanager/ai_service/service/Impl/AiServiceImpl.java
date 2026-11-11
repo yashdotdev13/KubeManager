@@ -20,34 +20,17 @@ public class AiServiceImpl implements AiService {
 
     @Override
     public AiChatResponse chat(AiChatRequest request) {
-
         UserContext userContext;
-
         try {
             userContext = UserContextHolder.getRequiredContext();
         } catch (IllegalStateException exception) {
-            throw new AiContextException(
-                    "Authenticated user context is not available",
-                    exception
-            );
+            throw new AiContextException("Authenticated user context is not available", exception);
         }
         try {
-            String response = chatClient
-                    .prompt()
-                    .user(request.message())
-                    .call()
-                    .content();
-
-            return new AiChatResponse(
-                    userContext.getUserId(),
-                    response
-            );
-
+            String response = chatClient.prompt().user(request.message()).call().content();
+            return new AiChatResponse(userContext.getUserId(), response);
         } catch (Exception exception) {
-            throw new AiModelException(
-                    "Failed to communicate with AI model",
-                    exception
-            );
+            throw new AiModelException("Failed to communicate with AI model", exception);
         }
     }
 }

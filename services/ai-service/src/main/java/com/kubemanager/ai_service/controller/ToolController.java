@@ -18,18 +18,8 @@ public class ToolController {
     private final ToolExecutor toolExecutor;
 
     @PostMapping("/execute")
-    public ResponseEntity<ApiResponse<ToolResponse>> executeTool(
-            @Valid @RequestBody ToolRequest request
-    ) {
-
-        ToolResponse response =
-                toolExecutor.execute(request);
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "AI tool executed successfully.",
-                        response
-                )
-        );
+    public ResponseEntity<ApiResponse<ToolResponse>> executeTool(@Valid @RequestBody ToolRequest request) {
+        ToolResponse response = toolExecutor.execute(request);
+        return ResponseEntity.ok(ApiResponse.success("AI tool executed successfully.", response));
     }
 }

@@ -16,29 +16,21 @@ public class RagVectorStoreTestService {
     private final VectorStore vectorStore;
 
     public void insertTestDocument() {
-        Document document = new Document(
-                """
+        Document document = new Document("""
                 Kubernetes CrashLoopBackOff occurs when a container
                 repeatedly starts and then terminates unsuccessfully.
                 Common causes include application crashes, incorrect
                 configuration, missing environment variables, failed
                 health checks, and unavailable dependencies.
-                """,
-                Map.of(
-                        "source", "kubernetes-troubleshooting",
-                        "type", "test"
-                )
-        );
+                """, Map.of("source", "kubernetes-troubleshooting", "type", "test"));
         vectorStore.add(List.of(document));
     }
 
     public List<Document> search(String query) {
-        return vectorStore.similaritySearch(
-                SearchRequest.builder()
-                        .query(query)
-                        .topK(3)
-                        .similarityThreshold(0.0)
-                        .build()
-        );
+        return vectorStore.similaritySearch(SearchRequest.builder()
+                .query(query)
+                .topK(3)
+                .similarityThreshold(0.0)
+                .build());
     }
 }
