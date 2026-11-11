@@ -17,18 +17,8 @@ public class AgentController {
     private final AgentOrchestrator agentOrchestrator;
 
     @PostMapping("/chat")
-    public ResponseEntity<ApiResponse<AgentResponse>> chat(
-            @Valid @RequestBody AgentRequest request
-    ) {
-
-        AgentResponse response =
-                agentOrchestrator.process(request);
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "AI request processed successfully.",
-                        response
-                )
-        );
+    public ResponseEntity<ApiResponse<AgentResponse>> chat(@Valid @RequestBody AgentRequest request) {
+        AgentResponse response = agentOrchestrator.process(request);
+        return ResponseEntity.ok(ApiResponse.success("AI request processed successfully.", response));
     }
 }
